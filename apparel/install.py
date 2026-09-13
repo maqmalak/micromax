@@ -137,6 +137,21 @@ def _build_custom_fields():
     add("Sales Order Item", "net_weight", "Net Weight", "Float", None, "carton_quantity", None)
     add("Sales Order Item", "gross_weight", "Gross Weight", "Float", None, "net_weight", None)
 
+    # ---------------------------------------------------------- CRM Lead (fundraising tracker)
+    # These map fields from the donor-prospecting spreadsheet that have no
+    # equivalent on the stock CRM Lead doctype (Segment/City/Expected Amount
+    # reuse the existing industry/territory/annual_revenue fields instead).
+    add("CRM Lead", "fundraising_section", "Fundraising Details", "Section Break", None, "territory", None)
+    add("CRM Lead", "priority", "Priority", "Select", "\nA+\nA\nB\nC", "fundraising_section", None)
+    add("CRM Lead", "csr_department", "CSR/ESG Department", "Data", None, "priority", None)
+    add("CRM Lead", "address", "Address", "Small Text", None, "csr_department", None)
+    add("CRM Lead", "fundraising_column_break", None, "Column Break", None, "address", None)
+    add("CRM Lead", "focus_area", "Focus Area", "Data", None, "fundraising_column_break", None)
+    add("CRM Lead", "education_focus", "Education Focus", "Data", None, "focus_area", None)
+    add("CRM Lead", "proposed_ask", "Proposed Ask", "Small Text", None, "education_focus", None)
+    add("CRM Lead", "first_contact_date", "First Contact", "Date", None, "proposed_ask", None)
+    add("CRM Lead", "remarks", "Remarks", "Small Text", None, "first_contact_date", None)
+
     return data
 
 def create_roles():

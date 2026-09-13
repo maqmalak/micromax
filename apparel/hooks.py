@@ -75,7 +75,7 @@ doc_typewise_controller_methods = {}
 fixtures = [
     {
         "dt": "Custom Field",
-        "filters": [["dt", "in", ["Item", "Supplier", "Customer", "Sales Order", "Sales Order Item"]]],
+        "filters": [["dt", "in", ["Item", "Supplier", "Customer", "Sales Order", "Sales Order Item", "CRM Lead"]]],
     },
 ]
 
@@ -96,6 +96,11 @@ scheduler_events = {
     "daily": [
         "apparel.apparel_export.utils.alerts.process_lc_alerts",
     ],
+    "cron": {
+        # CRM follow-up (CRM Task.due_date) and calendar reminder (Event.starts_on)
+        # delivery — the installed crm app has no job that ever reads either field.
+        "*/5 * * * *": ["apparel.crm_reminders.send_due_reminders"],
+    },
 }
 
 # For each DocType created by this app, no doc_events hooks are strictly needed,
