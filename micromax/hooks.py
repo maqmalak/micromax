@@ -3,7 +3,7 @@ from . import __version__ as __version__
 
 app_name = "micromax"
 app_title = "MicroMax"
-app_icon = "shirt"
+app_logo_url = "/assets/micromax/images/micromax-logo.svg"
 app_publisher = "MicroMax"
 app_description = "MicroMax Import/Export customization for ERPNext"
 app_email = "dev@example.com"
@@ -14,9 +14,9 @@ app_home = "/desk/micromax"
 add_to_apps_screen = [
     {
         "name": "micromax",
+        "logo": "/assets/micromax/images/micromax-logo.svg",
         "title": "MicroMax",
         "route": "/desk/micromax",
-        "icon": "shirt",
     }
 ]
 

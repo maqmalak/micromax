@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="MicroMax">
+  <rect width="256" height="256" rx="56" fill="#21999b" />
+  <g transform="translate(62.7 40.9) scale(0.72)">
+    <rect x="24" y="60" width="34" height="136" rx="11" fill="#ffffff" />
+    <rect x="72" y="60" width="32" height="106" rx="11" fill="#ffffff" />
+    <rect x="118" y="60" width="40" height="136" rx="13" fill="#ffffff" />
+    <g fill="#ef5f21">
+      <path d="M112 46 L139 46 L104 105 L133 105 L66 186 L91 120 L64 120 Z" />
+    </g>
+  </g>
+</svg>
