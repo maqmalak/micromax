@@ -1,2 +1,2 @@
-recursive-include apparel *.txt *.json *.md *.js *.py *.css
-recursive-include apparel/patches *.*
+recursive-include micromax *.txt *.json *.md *.js *.py *.css
+recursive-include micromax/patches *.*

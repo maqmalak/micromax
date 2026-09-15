@@ -1,6 +1,6 @@
-# Apparel — ERPNext Import / Export Customization
+# MicroMax — ERPNext Import / Export Customization
 
-Customizes standard ERPNext masters & transactions for an Apparel Import/Export
+Customizes standard ERPNext masters & transactions for an MicroMax Import/Export
 business. Uses ERPNext standard DocTypes (Item, Supplier, Customer/Buyer, Sales
 Order, Purchase Order, Warehouse, BOM, ...) and only adds **Custom Fields**.
 New DocTypes are limited to processes ERPNext cannot represent:
@@ -14,8 +14,8 @@ New DocTypes are limited to processes ERPNext cannot represent:
 ## Install (bench)
 
 ```bash
-echo apparel >> sites/apps.txt
-bench --site <site> install-app apparel
+echo micromax >> sites/apps.txt
+bench --site <site> install-app micromax
 bench --site <site> migrate
 bench --site <site> clear-cache
 ```

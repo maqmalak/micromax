@@ -1,0 +1,180 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:EXPPAC-{YYYY}-{###}",
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "packing_no",
+  "packing_date",
+  "section_break_links",
+  "sales_order",
+  "export_shipment",
+  "customer",
+  "lc_proforma",
+  "section_break_items",
+  "export_packing_details",
+  "section_break_totals",
+  "total_cartons",
+  "total_pieces",
+  "total_net_weight",
+  "total_gross_weight",
+  "total_cbm"
+ ],
+ "istable": false,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MicroMax Export",
+ "name": "Export Packing Details",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "select": 1,
+   "sharing": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Export Manager",
+   "select": 1,
+   "sharing": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "MicroMax Administrator",
+   "select": 1,
+   "sharing": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "title_field": "packing_no",
+ "fields": [
+  {
+   "fieldname": "packing_no",
+   "fieldtype": "Data",
+   "label": "Packing No.",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "packing_date",
+   "fieldtype": "Date",
+   "label": "Packing Date",
+   "default": "Today"
+  },
+  {
+   "fieldname": "section_break_links",
+   "fieldtype": "Section Break",
+   "label": "Links"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "reqd": 1
+  },
+  {
+   "fieldname": "export_shipment",
+   "fieldtype": "Link",
+   "label": "Export Shipment",
+   "options": "Export Shipment"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer / Buyer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "lc_proforma",
+   "fieldtype": "Link",
+   "label": "LC Proforma",
+   "options": "LC Proforma"
+  },
+  {
+   "fieldname": "section_break_items",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "export_packing_details",
+   "fieldtype": "Table",
+   "label": "Export Packing Details",
+   "options": "Export Packing Details Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_totals",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "total_cartons",
+   "fieldtype": "Int",
+   "label": "Total Cartons",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_pieces",
+   "fieldtype": "Float",
+   "label": "Total Pieces",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_net_weight",
+   "fieldtype": "Float",
+   "label": "Total Net Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_gross_weight",
+   "fieldtype": "Float",
+   "label": "Total Gross Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_cbm",
+   "fieldtype": "Float",
+   "label": "Total CBM",
+   "read_only": 1
+  }
+ ]
+}

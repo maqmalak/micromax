@@ -1,10 +1,10 @@
-"""Scaffold generator: writes the apparel DocType JSON files with correct
+"""Scaffold generator: writes the micromax DocType JSON files with correct
 fraction/hand-verifiable output via json.dump. Run once: python3 build.py"""
 import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-APPR = os.path.dirname(HERE)  # apps/apparel
+APPR = os.path.dirname(HERE)  # apps/micromax
 
 
 def F(fieldname, label, fieldtype, **kw):
@@ -65,11 +65,11 @@ def write(name, data):
     path = None
     # locate module folder from module string
     mod_folder = {
-        "Apparel Export": "apparel_export",
-        "Apparel Import": "apparel_import",
+        "MicroMax Export": "micromax_export",
+        "MicroMax Import": "micromax_import",
     }[data["module"]]
     doctype = name.lower().replace(" ", "_")
-    d = os.path.join(APPR, "apparel", mod_folder, "doctype", doctype)
+    d = os.path.join(APPR, "micromax", mod_folder, "doctype", doctype)
     os.makedirs(d, exist_ok=True)
     path = os.path.join(d, doctype + ".json")
     with open(path, "w") as f:
@@ -117,7 +117,7 @@ LC_PROFORMA_ITEM_FIELDS = [
 ]
 
 LC_PROFORMA_ITEM = header(
-    "LC Proforma Item", "Apparel Export", [f["fieldname"] for f in LC_PROFORMA_ITEM_FIELDS],
+    "LC Proforma Item", "MicroMax Export", [f["fieldname"] for f in LC_PROFORMA_ITEM_FIELDS],
     istable=True, quick_entry=True,
 )
 LC_PROFORMA_ITEM["fields"] = LC_PROFORMA_ITEM_FIELDS
@@ -176,7 +176,7 @@ LC_PROFORMA_FIELDS = [
 ]
 
 LC_PROFORMA = header(
-    "LC Proforma", "Apparel Export", [f["fieldname"] for f in LC_PROFORMA_FIELDS],
+    "LC Proforma", "MicroMax Export", [f["fieldname"] for f in LC_PROFORMA_FIELDS],
     is_submittable=True, title_field="proforma_no",
     actions=[{"action_name": "Create Sales Order", "create": 1, "group": "Create",
               "hidden": 0, "label": "Create Sales Order"}],
@@ -184,7 +184,7 @@ LC_PROFORMA = header(
         {"group": "Sales Order", "link_doctype": "Sales Order", "link_fieldname": "lc_proforma"},
         {"group": "Export Shipment", "link_doctype": "Export Shipment", "link_fieldname": "lc_proforma"},
     ],
-    permissions=perms("System Manager", "Export Manager", "Apparel Administrator"),
+    permissions=perms("System Manager", "Export Manager", "MicroMax Administrator"),
     autoname="format:LC-PROF-{YYYY}-{###}",
 )
 LC_PROFORMA["fields"] = LC_PROFORMA_FIELDS
@@ -235,9 +235,9 @@ IMPORT_SHIPMENT_FIELDS = [
 ]
 
 IMPORT_SHIPMENT = header(
-    "Import Shipment", "Apparel Import", [f["fieldname"] for f in IMPORT_SHIPMENT_FIELDS],
+    "Import Shipment", "MicroMax Import", [f["fieldname"] for f in IMPORT_SHIPMENT_FIELDS],
     title_field="shipment_no", autoname="format:IMPSHIP-{YYYY}-{###}",
-    permissions=perms("System Manager", "Import Manager", "Apparel Administrator"),
+    permissions=perms("System Manager", "Import Manager", "MicroMax Administrator"),
 )
 IMPORT_SHIPMENT["fields"] = IMPORT_SHIPMENT_FIELDS
 
@@ -266,7 +266,7 @@ IMPORT_COST_ITEM_FIELDS = [
 ]
 
 IMPORT_COST_ITEM = header(
-    "Import Cost Sheet Item", "Apparel Import",
+    "Import Cost Sheet Item", "MicroMax Import",
     [f["fieldname"] for f in IMPORT_COST_ITEM_FIELDS], istable=True, quick_entry=True,
 )
 IMPORT_COST_ITEM["fields"] = IMPORT_COST_ITEM_FIELDS
@@ -293,9 +293,9 @@ IMPORT_COST_FIELDS = [
 ]
 
 IMPORT_COST_SHEET = header(
-    "Import Cost Sheet", "Apparel Import", [f["fieldname"] for f in IMPORT_COST_FIELDS],
+    "Import Cost Sheet", "MicroMax Import", [f["fieldname"] for f in IMPORT_COST_FIELDS],
     title_field="name", autoname="format:IMPCOS-{YYYY}-{###}",
-    permissions=perms("System Manager", "Import Manager", "Apparel Administrator"),
+    permissions=perms("System Manager", "Import Manager", "MicroMax Administrator"),
 )
 IMPORT_COST_SHEET["fields"] = IMPORT_COST_FIELDS
 
@@ -328,9 +328,9 @@ EXPORT_SHIPMENT_FIELDS = [
 ]
 
 EXPORT_SHIPMENT = header(
-    "Export Shipment", "Apparel Export", [f["fieldname"] for f in EXPORT_SHIPMENT_FIELDS],
+    "Export Shipment", "MicroMax Export", [f["fieldname"] for f in EXPORT_SHIPMENT_FIELDS],
     title_field="shipment_no", autoname="format:EXPSHIP-{YYYY}-{###}",
-    permissions=perms("System Manager", "Export Manager", "Apparel Administrator"),
+    permissions=perms("System Manager", "Export Manager", "MicroMax Administrator"),
 )
 EXPORT_SHIPMENT["fields"] = EXPORT_SHIPMENT_FIELDS
 
@@ -352,7 +352,7 @@ PACKING_ITEM_FIELDS = [
 ]
 
 PACKING_ITEM = header(
-    "Export Packing Details Item", "Apparel Export",
+    "Export Packing Details Item", "MicroMax Export",
     [f["fieldname"] for f in PACKING_ITEM_FIELDS], istable=True, quick_entry=True,
 )
 PACKING_ITEM["fields"] = PACKING_ITEM_FIELDS
@@ -380,9 +380,9 @@ PACKING_FIELDS = [
 ]
 
 PACKING = header(
-    "Export Packing Details", "Apparel Export", [f["fieldname"] for f in PACKING_FIELDS],
+    "Export Packing Details", "MicroMax Export", [f["fieldname"] for f in PACKING_FIELDS],
     title_field="packing_no", autoname="format:EXPPAC-{YYYY}-{###}",
-    permissions=perms("System Manager", "Export Manager", "Apparel Administrator"),
+    permissions=perms("System Manager", "Export Manager", "MicroMax Administrator"),
 )
 PACKING["fields"] = PACKING_FIELDS
 
