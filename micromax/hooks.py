@@ -97,8 +97,11 @@ scheduler_events = {
         "micromax.micromax_export.utils.alerts.process_lc_alerts",
     ],
     "cron": {
-        # CRM follow-up (CRM Task.due_date) and calendar reminder (Event.starts_on)
-        # delivery — the installed crm app has no job that ever reads either field.
+        # CRM follow-up (CRM Task.due_date), calendar reminder (Event.starts_on),
+        # and outgoing-mail send/error status — the installed crm app has no job
+        # that ever reads any of these, and Email Queue's own status update
+        # doesn't fire a doc_event hook (see crm_reminders.py's
+        # _notify_mail_send_status docstring), so this can't be event-driven.
         "*/5 * * * *": ["micromax.crm_reminders.send_due_reminders"],
     },
 }
@@ -108,5 +111,19 @@ scheduler_events = {
 doc_events = {
     "LC Proforma": {
         "on_update": "micromax.micromax_export.utils.lc_proforma.update_from_status",
+    },
+    "Communication": {
+        # Additive to the crm app's own Communication.after_insert hook (Frappe
+        # runs every app's registered hook for the same event) — that one only
+        # auto-creates a Lead from an unrecognized sender; this pings the
+        # Lead/Deal owner about a new inbound email, which nothing else does.
+        "after_insert": "micromax.crm_mail_notifications.on_communication_after_insert",
+    },
+    "CRM Task": {
+        # Without this, deleting a task/follow-up that ever triggered a
+        # reminder fails with "Cannot delete or cancel because CRM Task N is
+        # linked with CRM Notification ..." — the notification's Dynamic
+        # Link back to the task blocks it.
+        "on_trash": "micromax.crm_reminders.cleanup_notifications_on_trash",
     },
 }

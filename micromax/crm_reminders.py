@@ -15,6 +15,10 @@ REMINDER_LOOKAHEAD_MINUTES = 15
 # Stop surfacing an Event reminder this long after it started (minutes) —
 # keeps the query (and the notification list) from accumulating ancient events.
 EVENT_STALE_AFTER_MINUTES = 60
+# How far back to scan Email Queue for a just-finished send (minutes) — must
+# comfortably cover this job's own */5 cadence so a row is never missed
+# between runs, without re-scanning the whole table's history every time.
+MAIL_STATUS_LOOKBACK_MINUTES = 10
 
 OPEN_TASK_STATUSES = ["Backlog", "Todo", "In Progress"]
 
@@ -25,14 +29,28 @@ def send_due_reminders():
 	window_end = add_to_date(now, minutes=REMINDER_LOOKAHEAD_MINUTES)
 	_remind_tasks(now, window_end)
 	_remind_events(now, window_end)
+	_notify_mail_send_status(now)
 
 
-def _notify(to_user: str | None, notification_text: str, message: str, ref_doctype: str, ref_name: str):
+def _notify(
+	to_user: str | None,
+	notification_text: str,
+	message: str,
+	ref_doctype: str,
+	ref_name: str,
+	notification_type: str = "Task",
+):
 	"""Insert a CRM Notification directly, rather than via
 	`crm.fcrm.doctype.crm_notification.crm_notification.notify_user()`: that
 	helper silently no-ops when `owner == assigned_to` — exactly the common
 	case for a self-assigned follow-up or reminder, which is precisely who
 	most needs the ping.
+
+	`notification_type` must be one of CRM Notification's `type` Select
+	options (Mention/Task/Assignment/WhatsApp/Email — the last widened onto
+	the vendored doctype via a Property Setter, the same mechanism used
+	elsewhere in this app to extend a core/ERPNext Select without touching
+	the vendored file). Defaults to "Task" for the reminder call sites below.
 
 	Dedup is done with an explicit filters dict that does NOT include a
 	`doctype` key — confirmed against the live backend that
@@ -55,7 +73,7 @@ def _notify(to_user: str | None, notification_text: str, message: str, ref_docty
 		return
 	dedupe_filters = {
 		"to_user": to_user,
-		"type": "Task",
+		"type": notification_type,
 		"notification_text": notification_text,
 		"reference_doctype": ref_doctype,
 		"reference_name": ref_name,
@@ -67,7 +85,7 @@ def _notify(to_user: str | None, notification_text: str, message: str, ref_docty
 			"doctype": "CRM Notification",
 			"from_user": to_user,
 			"to_user": to_user,
-			"type": "Task",
+			"type": notification_type,
 			"message": message,
 			"notification_text": notification_text,
 			"notification_type_doctype": ref_doctype,
@@ -77,6 +95,26 @@ def _notify(to_user: str | None, notification_text: str, message: str, ref_docty
 		}
 	).insert(ignore_permissions=True)
 	frappe.publish_realtime("crm_notification", user=to_user)
+
+
+def cleanup_notifications_on_trash(doc, method=None):
+	"""doc_events hook: CRM Notification links back to whatever it's about via
+	two Dynamic Link fields (reference_name / notification_type_doc), which
+	blocks deleting that document ("Cannot delete or cancel because CRM Task 9
+	is linked with CRM Notification ...") until those notifications are gone.
+	Registered for CRM Task's on_trash so the reminder job's own notifications
+	never get in the way of deleting the task/follow-up they were about.
+	"""
+	linked = frappe.get_all(
+		"CRM Notification",
+		or_filters=[
+			{"reference_doctype": doc.doctype, "reference_name": doc.name},
+			{"notification_type_doctype": doc.doctype, "notification_type_doc": doc.name},
+		],
+		pluck="name",
+	)
+	for n in linked:
+		frappe.delete_doc("CRM Notification", n, force=True, ignore_permissions=True)
 
 
 def _remind_tasks(now, window_end):
@@ -125,3 +163,56 @@ def _remind_events(now, window_end):
 			"Event",
 			e.name,
 		)
+
+
+def _notify_mail_send_status(now):
+	"""Notifies whoever queued an outgoing email once it's actually gone out
+	(or failed) — a "sent" toast in the compose box only means "queued", not
+	"delivered"; the real Sent/Error status lands on Email Queue later,
+	asynchronously, once the scheduler's own send job runs.
+
+	This is polling, not a doc_event hook: EmailQueue.update_status() (see
+	apps/frappe/frappe/email/doctype/email_queue/email_queue.py) writes the
+	status via the module-level `frappe.db.set_value()`, which does NOT fire
+	`on_update` — confirmed against that source. A hook on Email Queue would
+	simply never run.
+	"""
+	since = add_to_date(now, minutes=-MAIL_STATUS_LOOKBACK_MINUTES)
+	rows = frappe.get_all(
+		"Email Queue",
+		filters=[
+			["status", "in", ["Sent", "Error"]],
+			["modified", ">=", since],
+		],
+		fields=["name", "status", "error", "owner", "reference_doctype", "reference_name"],
+		limit_page_length=0,
+	)
+	for row in rows:
+		_notify_one_mail_status(row)
+
+
+def _notify_one_mail_status(row):
+	to_user = row.owner
+	if not to_user:
+		return
+	ref_doctype = row.reference_doctype or "Email Queue"
+	ref_name = row.reference_name or row.name
+	recipient_rows = frappe.get_all("Email Queue Recipient", filters={"parent": row.name}, fields=["recipient"])
+	recipients = ", ".join(r.recipient for r in recipient_rows if r.recipient) or "the recipient"
+
+	if row.status == "Sent":
+		text = f"Email sent to {recipients}"
+		message = f"<p>Your email to <b>{escape_html(recipients)}</b> was sent successfully.</p>"
+	else:
+		# `error` is often a full Python traceback (see the SMTP rejection
+		# case this app hit while setting up corporate@wise.edu.pk's mail
+		# account) — the last line is the actual exception message, which is
+		# the only part worth surfacing in a notification.
+		error_line = (row.error or "").strip().splitlines()[-1] if row.error else "Unknown error"
+		text = f"Email to {recipients} failed to send"
+		message = (
+			f"<p>Your email to <b>{escape_html(recipients)}</b> failed to send.</p>"
+			f'<p style="color:#b91c1c">{escape_html(error_line)}</p>'
+		)
+
+	_notify(to_user, text, message, ref_doctype, ref_name, notification_type="Email")
