@@ -81,11 +81,17 @@ fixtures = [
 
 before_migrate = [
     "micromax.install.make_custom_fields",
+    "micromax.install.make_crm_notification_email_option",
+    "micromax.install.make_crm_organization_employee_options",
+    "micromax.install.make_crm_organization_address_freetext",
     "micromax.install.create_workflow",
 ]
 
 after_install = [
     "micromax.install.make_custom_fields",
+    "micromax.install.make_crm_notification_email_option",
+    "micromax.install.make_crm_organization_employee_options",
+    "micromax.install.make_crm_organization_address_freetext",
     "micromax.install.create_workflow",
     "micromax.install.create_roles",
     "micromax.install.create_dashboard",
@@ -109,6 +115,13 @@ scheduler_events = {
 # For each DocType created by this app, no doc_events hooks are strictly needed,
 # but a clean on_trash guard keeps data integrity:
 doc_events = {
+    # Spinning-mill calculations (blend ratio, yield, waste, spindles/frames) — see mfg_logic.py.
+    "BOM": {
+        "before_validate": "micromax.mfg_logic.bom_before_validate",
+    },
+    "Work Order": {
+        "validate": "micromax.mfg_logic.work_order_validate",
+    },
     "LC Proforma": {
         "on_update": "micromax.micromax_export.utils.lc_proforma.update_from_status",
     },

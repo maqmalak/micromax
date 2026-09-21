@@ -1,11 +1,82 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 
 
 def execute():
     make_custom_fields()
+    make_crm_notification_email_option()
+    make_crm_organization_employee_options()
+    make_crm_organization_address_freetext()
     create_roles()
     create_workflow()
+
+
+def make_crm_notification_email_option():
+    """Widen CRM Notification.type with an "Email" option via a Property Setter.
+
+    micromax.crm_reminders (mail send/error pings) and
+    micromax.crm_mail_notifications (inbound-email pings) insert CRM
+    Notification rows with type="Email". The vendored crm app's doctype only
+    allows Mention/Task/Assignment/WhatsApp, so without this setter every such
+    insert fails with:
+    'Type cannot be "Email". It should be one of "Mention", "Task",
+    "Assignment", "WhatsApp"'.
+
+    make_property_setter() deletes any existing setter for the same
+    doctype/field/property before inserting and clears the doctype cache, so
+    this is idempotent — safe to run on every install/migrate. Registered in
+    both before_migrate and after_install in hooks.py.
+    """
+    make_property_setter(
+        "CRM Notification",
+        "type",
+        "options",
+        "Mention\nTask\nAssignment\nWhatsApp\nEmail",
+        "Select",
+    )
+
+
+def make_crm_organization_employee_options():
+    """Add an "Above 500" bucket to CRM Organization.no_of_employees via a Property Setter.
+
+    The React Organizations form offers 1-10 / 11-50 / 51-200 / 201-500 / Above 500. The crm app's
+    Select only allows "1-10 ... 201-500", "501-1000" and "1000+", and Frappe rejects a Select value
+    that isn't in its option list, so "Above 500" would fail on save without this. The crm app's own
+    "501-1000" / "1000+" are kept so existing records stay valid.
+
+    make_property_setter() replaces any previous setter for the same doctype/field/property, so this is
+    idempotent — registered in both before_migrate and after_install in hooks.py.
+    """
+    make_property_setter(
+        "CRM Organization",
+        "no_of_employees",
+        "options",
+        "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+\nAbove 500",
+        "Select",
+    )
+
+
+def make_crm_organization_address_freetext():
+    """Turn CRM Organization.address from a Link to "Address" into free-text Small Text.
+
+    The crm app declares it as a Link to the Address doctype, so typing plain text in the React
+    Organizations form failed on save with "Could not find Address: <text>". The Lead form's address
+    (a micromax custom field) is already Small Text; this makes Organization match.
+
+    A Property Setter alone doesn't change the DB column (varchar(140) for a Link), so this also runs
+    updatedb() to widen it to text — otherwise a long address would be truncated/rejected. Existing
+    values (Address doc names) are kept as-is. Idempotent; registered in before_migrate and
+    after_install in hooks.py.
+
+    Caveat: the crm app's optional ERPNext sync (erpnext_crm_settings.get_organization_address) still
+    loads the value as an Address doc, so with that integration enabled a free-text address there
+    would fail — it is disabled on this bench.
+    """
+    make_property_setter("CRM Organization", "address", "fieldtype", "Small Text", "Data")
+    make_property_setter("CRM Organization", "address", "options", "", "Text")
+    frappe.clear_cache(doctype="CRM Organization")
+    frappe.db.updatedb("CRM Organization")
 
 
 def _build_custom_fields():
