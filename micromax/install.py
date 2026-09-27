@@ -297,8 +297,33 @@ def create_workflow():
     doc.submit()
     frappe.db.commit()
 
+def _drop_fields_that_now_exist_natively(data):
+    """A few fields defined below (Sales Order.incoterm, Item.country_of_origin)
+    were added back when ERPNext didn't ship them. ERPNext v16 now has native
+    equivalents (Sales Order.incoterm as Link -> Incoterm; Item.country_of_origin
+    as Link -> Country) — creating our own Custom Field of the same fieldname on
+    top of a native one leaves the doctype with a duplicate fieldname, which
+    Frappe only surfaces later as `Fieldname X appears multiple times in rows`
+    on some unrelated Custom Field save (e.g. another app's fixture import).
+    Every `before_migrate` run re-adds these via create_custom_fields, so the
+    guard has to live here — deleting the stray Custom Field once isn't enough.
+    `insert_after` chains that pointed at a dropped field still resolve fine,
+    since insert_after only needs a field of that name to exist, custom or not."""
+    for dt, fields in list(data.items()):
+        kept = []
+        for field in fields:
+            fieldname = field["fieldname"]
+            if frappe.get_meta(dt).has_field(fieldname) and not frappe.db.exists(
+                "Custom Field", f"{dt}-{fieldname}"
+            ):
+                continue  # native field of this name already exists — skip
+            kept.append(field)
+        data[dt] = kept
+    return data
+
+
 def make_custom_fields():
-    data = _build_custom_fields()
+    data = _drop_fields_that_now_exist_natively(_build_custom_fields())
     if frappe.db.table_exists("Custom Field") and data:
         create_custom_fields(data, ignore_validate=True)
 

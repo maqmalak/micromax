@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "creation": "2026-09-23 00:00:00.000000",
+ "doctype": "DocType",
+ "document_type": "System",
+ "engine": "InnoDB",
+ "field_order": [
+  "theme",
+  "table_row",
+  "column_break_display",
+  "view",
+  "filter"
+ ],
+ "fields": [
+  {
+   "fieldname": "theme",
+   "fieldtype": "Select",
+   "label": "Theme",
+   "options": "dark\nlight",
+   "default": "dark",
+   "reqd": 1,
+   "description": "Default theme applied across the app until a user overrides it."
+  },
+  {
+   "fieldname": "table_row",
+   "fieldtype": "Select",
+   "label": "Table Rows Per Page",
+   "options": "10\n20\n50\n100",
+   "default": "20",
+   "reqd": 1,
+   "description": "Default page size for list/report tables."
+  },
+  {
+   "fieldname": "column_break_display",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "view",
+   "fieldtype": "Select",
+   "label": "View",
+   "options": "list\ncard\npipeline",
+   "default": "list",
+   "reqd": 1,
+   "description": "Default view style lists open in."
+  },
+  {
+   "fieldname": "filter",
+   "fieldtype": "Select",
+   "label": "Default Docstatus Filter",
+   "options": "0\n1\n2",
+   "default": "2",
+   "reqd": 1,
+   "description": "Docstatus lists are filtered to by default — 0 Draft, 1 Submitted, 2 Cancelled."
+  }
+ ],
+ "issingle": 1,
+ "icon": "fa fa-sliders",
+ "links": [],
+ "modified": "2026-09-23 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MicroMax",
+ "name": "Micromax Defaults",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
