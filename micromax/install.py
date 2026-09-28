@@ -243,6 +243,15 @@ def _build_custom_fields():
         ),
     )
 
+    # ---------------------------------------------------------- BOM
+    # Production (own fibre, mill-owned yarn) vs Conversion (customer-supplied fibre / third-party yarn);
+    # set from the item's group in mfg_logic.bom_before_validate, filterable in list views.
+    data.setdefault("BOM", []).append({
+        "fieldname": "bom_category", "label": "BOM Category", "fieldtype": "Select", "options": "Production\nConversion",
+        "insert_after": "bom_type", "read_only": 1, "allow_on_submit": 1, "in_list_view": 1, "in_standard_filter": 1,
+        "description": "Conversion = the item is third-party / conversion stock (customer-supplied fibre).",
+    })
+
     return data
 
 def create_roles():

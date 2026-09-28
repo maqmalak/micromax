@@ -87,10 +87,21 @@ def apply_bom(doc):
     return doc
 
 
+CONVERSION_GROUP_HINTS = ("third party", "conversion")
+
+
+def bom_category(item_code):
+    """"Conversion" when the item (or its group) is third-party / conversion stock — the fibre belongs to the
+    customer and the mill only charges for processing — otherwise "Production"."""
+    group = (frappe.db.get_value("Item", item_code, "item_group") or "").lower() if item_code else ""
+    return "Conversion" if any(h in group for h in CONVERSION_GROUP_HINTS) else "Production"
+
+
 def bom_before_validate(doc, method=None):
     """doc_event: BOM.before_validate — runs before ERPNext's own BOM validation so the costs and
     stock_qty it derives from each item's qty see the blend-ratio quantities."""
     apply_bom(doc)
+    doc.bom_category = bom_category(doc.item)
     items = doc.get("items") or []
     blends = [flt(i.get("blend_ratio")) for i in items]
     if doc.get("bom_type") == SPINNING and any(b > 0 for b in blends) and abs(sum(blends) - 100) > 0.01:
