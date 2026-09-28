@@ -75,7 +75,7 @@ doc_typewise_controller_methods = {}
 fixtures = [
     {
         "dt": "Custom Field",
-        "filters": [["dt", "in", ["Item", "Supplier", "Customer", "Sales Order", "Sales Order Item", "CRM Lead"]]],
+        "filters": [["dt", "in", ["Item", "Supplier", "Customer", "Sales Order", "Sales Order Item", "CRM Lead", "Account"]]],
     },
 ]
 

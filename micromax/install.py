@@ -223,6 +223,26 @@ def _build_custom_fields():
     add("CRM Lead", "first_contact_date", "First Contact", "Date", None, "proposed_ask", None)
     add("CRM Lead", "remarks", "Remarks", "Small Text", None, "first_contact_date", None)
 
+    # ---------------------------------------------------------- Account
+    # Cost-per-spindle (CPS) tagging. Expense accounts flagged here are the ones
+    # the Production dashboard's cost-per-spindle figures are built from, so the
+    # mill can say which costs (power, wages, spares …) count against the spindle
+    # count. A plain Check so it survives a Chart of Accounts import and can be
+    # filtered on later (Account.cps_applicable = 1).
+    add(
+        "Account",
+        "cps_applicable",
+        "CPS Applicable",
+        "Check",
+        None,
+        "include_in_gross",
+        None,
+        description=(
+            "Count this account's expenses towards the cost-per-spindle figures "
+            "on the Production dashboard."
+        ),
+    )
+
     return data
 
 def create_roles():

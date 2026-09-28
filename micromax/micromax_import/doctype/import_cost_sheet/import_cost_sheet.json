@@ -84,7 +84,6 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "track_changes": 1,
- "title_field": "name",
  "fields": [
   {
    "fieldname": "cost_sheet_date",
