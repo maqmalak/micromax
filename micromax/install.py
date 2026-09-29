@@ -223,6 +223,16 @@ def _build_custom_fields():
     add("CRM Lead", "first_contact_date", "First Contact", "Date", None, "proposed_ask", None)
     add("CRM Lead", "remarks", "Remarks", "Small Text", None, "first_contact_date", None)
 
+    # Second contact person on the same lead (e.g. the CSR head plus the finance contact) — shown in its own
+    # "Second Contact" tab in the React lead page, and in the desk's Person tab under the main contact.
+    add("CRM Lead", "second_contact_section", "Second Contact Person", "Section Break", None, "mobile_no", None)
+    add("CRM Lead", "second_contact_name", "Person Name", "Data", None, "second_contact_section", None)
+    add("CRM Lead", "second_contact_gender", "Gender", "Link", "Gender", "second_contact_name", None)
+    add("CRM Lead", "second_contact_designation", "Designation", "Data", None, "second_contact_gender", None)
+    add("CRM Lead", "second_contact_column_break", None, "Column Break", None, "second_contact_designation", None)
+    add("CRM Lead", "second_contact_email", "Email", "Data", "Email", "second_contact_column_break", None)
+    add("CRM Lead", "second_contact_mobile", "Cell No", "Data", "Phone", "second_contact_email", None)
+
     # ---------------------------------------------------------- Account
     # Cost-per-spindle (CPS) tagging. Expense accounts flagged here are the ones
     # the Production dashboard's cost-per-spindle figures are built from, so the

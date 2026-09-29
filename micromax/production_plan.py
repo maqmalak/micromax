@@ -174,3 +174,44 @@ def get_wo_insights(name):
 	downtime = frappe.db.sql("""select ifnull(stop_reason, 'Not set') reason, count(*) stops, sum(downtime) minutes
 		from `tabDowntime Entry` where work_order = %s and docstatus < 2 group by stop_reason order by minutes desc""", name, as_dict=True)
 	return {"operations": ops, "stock": stock, "downtime": downtime}
+
+
+# ----------------------------------------------------------------------------- workstation / downtime tabs
+@frappe.whitelist()
+def get_workstation_insights(name, from_date=None, to_date=None):
+	"""Machine performance over a period (default: the current Jul–Jun fiscal year): job-card output and time
+	efficiency, downtime by reason and by month, availability (run hours vs run + stop hours) and top items."""
+	frappe.has_permission("Workstation", "read", throw=True)
+	from frappe.utils import add_years, getdate, nowdate
+
+	today = getdate(nowdate())
+	fy_start = getdate(f"{today.year if today.month >= 7 else today.year - 1}-07-01")
+	f, t = getdate(from_date) if from_date else fy_start, getdate(to_date) if to_date else add_years(fy_start, 1) - frappe.utils.datetime.timedelta(days=1)
+	args = {"w": name, "f": f, "t": t}
+	jc = frappe.db.sql("""select count(*) cards, sum(status = 'Completed') completed, sum(time_required) / 60 std_hours,
+			sum(total_time_in_mins) / 60 run_hours, sum(total_completed_qty) output, sum(process_loss_qty) loss, sum(for_quantity) input,
+			sum(total_time_in_mins / 60 * hour_rate) cost, sum(is_corrective_job_card) rework
+		from `tabJob Card` where workstation = %(w)s and docstatus < 2 and posting_date between %(f)s and %(t)s""", args, as_dict=True)[0]
+	dt_reason = frappe.db.sql("""select ifnull(stop_reason, 'Not set') reason, count(*) stops, sum(downtime) minutes
+		from `tabDowntime Entry` where workstation = %(w)s and docstatus < 2 and date(from_time) between %(f)s and %(t)s
+		group by stop_reason order by minutes desc""", args, as_dict=True)
+	dt_month = frappe.db.sql("""select date_format(from_time, '%%Y-%%m') m, sum(downtime) / 60 hours, count(*) stops
+		from `tabDowntime Entry` where workstation = %(w)s and docstatus < 2 and date(from_time) between %(f)s and %(t)s group by m order by m""", args, as_dict=True)
+	run_month = frappe.db.sql("""select date_format(posting_date, '%%Y-%%m') m, sum(total_time_in_mins) / 60 hours, sum(time_required) / 60 std
+		from `tabJob Card` where workstation = %(w)s and docstatus < 2 and posting_date between %(f)s and %(t)s group by m order by m""", args, as_dict=True)
+	items = frappe.db.sql("""select item_name label, sum(total_completed_qty) qty, count(*) cards from `tabJob Card`
+		where workstation = %(w)s and docstatus < 2 and posting_date between %(f)s and %(t)s group by item_name order by qty desc limit 6""", args, as_dict=True)
+	stop_hours = sum(flt(r.minutes) for r in dt_reason) / 60
+	run = flt(jc.run_hours)
+	months = sorted({r.m for r in dt_month} | {r.m for r in run_month})
+	dm, rm = {r.m: r for r in dt_month}, {r.m: r for r in run_month}
+	return {
+		"period": {"from": str(f), "to": str(t)},
+		"cards": int(jc.cards or 0), "completed": int(jc.completed or 0), "rework": int(jc.rework or 0),
+		"std_hours": round(flt(jc.std_hours), 1), "run_hours": round(run, 1), "stop_hours": round(stop_hours, 1),
+		"efficiency": round(flt(jc.std_hours) / run * 100, 1) if run and flt(jc.std_hours) else None,
+		"availability": round(run / (run + stop_hours) * 100, 1) if run + stop_hours else None,
+		"output": flt(jc.output), "loss_pct": round(flt(jc.loss) / flt(jc.input) * 100, 2) if flt(jc.input) else None, "cost": flt(jc.cost),
+		"stops": sum(int(r.stops) for r in dt_reason), "downtime_by_reason": dt_reason, "items": items,
+		"monthly": [{"month": m, "run": round(flt(rm[m].hours), 1) if m in rm else 0, "stop": round(flt(dm[m].hours), 1) if m in dm else 0} for m in months],
+	}
