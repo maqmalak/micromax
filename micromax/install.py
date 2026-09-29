@@ -262,6 +262,43 @@ def _build_custom_fields():
         "description": "Conversion = the item is third-party / conversion stock (customer-supplied fibre).",
     })
 
+    # ---------------------------------------------------------- Spinning production (Work Order / Downtime / Workstation)
+    # Spindle, yield, OPS and waste figures computed in mfg_logic.work_order_validate and read by the Production and
+    # WO Analysis dashboards (micromax.dashboards._production / _wo_analysis). They used to exist only as site-level
+    # Custom Fields, so a fresh site had none of these columns and both dashboards failed with "Unknown column".
+    for dt, field in (
+        ("Work Order", {"fieldname": "spindle_allocated", "label": "Spindle Allocated", "fieldtype": "Int", "insert_after": "bom_no", "non_negative": 1, "reqd": 1}),
+        ("Work Order", {"fieldname": "bags", "label": "Bags", "fieldtype": "Float", "insert_after": "qty", "read_only": 1}),
+        ("Work Order", {"fieldname": "work_order_date", "label": "Work Order Date", "fieldtype": "Date", "insert_after": "project", "read_only": 1, "fetch_from": "production_plan.posting_date", "reqd": 1}),
+        ("Work Order", {"fieldname": "section_break_29", "fieldtype": "Section Break", "insert_after": "required_items"}),
+        ("Work Order", {"fieldname": "material_required", "label": "Material Required", "fieldtype": "Float", "insert_after": "section_break_29", "read_only": 1}),
+        ("Work Order", {"fieldname": "material_issued", "label": "Material Issued", "fieldtype": "Float", "insert_after": "material_required", "read_only": 1}),
+        ("Work Order", {"fieldname": "target_yield", "label": "Target Yield", "fieldtype": "Percent", "insert_after": "material_issued", "read_only": 1}),
+        ("Work Order", {"fieldname": "section_break_40", "fieldtype": "Section Break", "insert_after": "target_yield"}),
+        ("Work Order", {"fieldname": "target_waste", "label": "Target Waste", "fieldtype": "Float", "insert_after": "target_yield", "read_only": 1}),
+        ("Work Order", {"fieldname": "total_downtime", "label": "Total Downtime", "fieldtype": "Float", "insert_after": "section_break_40", "read_only": 1, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "target_waste_percentage", "label": "Target Waste Percentage", "fieldtype": "Percent", "insert_after": "target_waste", "read_only": 1}),
+        ("Work Order", {"fieldname": "column_break_35", "fieldtype": "Column Break", "insert_after": "target_waste_percentage"}),
+        ("Work Order", {"fieldname": "target_ops", "label": "Target OPS", "fieldtype": "Float", "insert_after": "column_break_35", "read_only": 1}),
+        ("Work Order", {"fieldname": "spindle_required", "label": "Spindle Required", "fieldtype": "Float", "insert_after": "target_ops", "read_only": 1, "precision": 9}),
+        ("Work Order", {"fieldname": "frame_required", "label": "Frame Required", "fieldtype": "Float", "insert_after": "spindle_required", "read_only": 1, "precision": 9}),
+        ("Work Order", {"fieldname": "per_shift_frame_required", "label": "Per Shift Frame Required", "fieldtype": "Float", "insert_after": "frame_required", "read_only": 1, "precision": 9}),
+        ("Work Order", {"fieldname": "actual_section", "fieldtype": "Section Break", "insert_after": "per_shift_frame_required"}),
+        ("Work Order", {"fieldname": "actual_waste", "label": "Actual Waste", "fieldtype": "Float", "insert_after": "actual_section", "read_only": 1, "precision": 9, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "actual_waste_percentage", "label": "Actual Waste Percentage", "fieldtype": "Percent", "insert_after": "actual_waste", "read_only": 1, "precision": 9, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "actual_yield", "label": "Actual Yield", "fieldtype": "Percent", "insert_after": "actual_waste_percentage", "read_only": 1, "precision": 9, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "column_break_44", "fieldtype": "Column Break", "insert_after": "actual_yield"}),
+        ("Work Order", {"fieldname": "actual_ops", "label": "Actual OPS", "fieldtype": "Float", "insert_after": "column_break_44", "read_only": 1, "precision": 9, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "spindle_worked", "label": "Spindle Worked", "fieldtype": "Float", "insert_after": "actual_ops", "read_only": 1, "precision": 9, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "actual_frame_required", "label": "Actual Frame Required", "fieldtype": "Float", "insert_after": "spindle_worked", "read_only": 1, "precision": 9, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "actual_per_shift_frame_required", "label": "Actual Per Shift Frame Required", "fieldtype": "Float", "insert_after": "actual_frame_required", "read_only": 1, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "stopage_in_minutes", "label": "Stopage In Minutes", "fieldtype": "Int", "insert_after": "actual_per_shift_frame_required", "read_only": 1, "allow_on_submit": 1}),
+        ("Work Order", {"fieldname": "frame_stopage", "label": "Frame Stopage", "fieldtype": "Int", "insert_after": "stopage_in_minutes", "read_only": 1, "allow_on_submit": 1}),
+        ("Downtime Entry", {"fieldname": "work_order", "label": "Work Order", "fieldtype": "Link", "options": "Work Order", "insert_after": "naming_series", "read_only": 1}),
+        ("Workstation", {"fieldname": "spindles", "label": "Spindles", "fieldtype": "Int", "insert_after": "column_break_3", "non_negative": 1, "reqd": 1}),
+    ):
+        data.setdefault(dt, []).append(field)
+
     return data
 
 def create_roles():
