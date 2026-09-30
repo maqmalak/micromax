@@ -11,6 +11,11 @@ class LCProforma(Document):
         self.update_item_totals()
         self.update_lc_status_from_workflow()
 
+    def on_update_after_submit(self):
+        # Workflow transitions after submit (Buyer Approval, LC Received, Confirmed, Closed) don't run validate.
+        if getattr(self, "workflow_state", None) and self.lc_status != self.workflow_state:
+            self.db_set("lc_status", self.workflow_state)
+
     def on_submit(self):
         """Update LC status when document is submitted."""
         self.db_set("lc_status", "Submitted")

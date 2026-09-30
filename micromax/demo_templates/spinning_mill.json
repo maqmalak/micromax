@@ -1,0 +1,1538 @@
+{
+  "_about": "Demo template for micromax.demo_data.generate(template='spinning_mill'). Edit freely: codes, names, rates (PKR/kg), blends (%), yields (%), OPS, seasonality. Copy the file to make another template.",
+  "company": "MicroMax Erp Pvt Ltd.",
+  "warehouses": {
+    "fibre": "Fibre Godown",
+    "wip": "WIP Spinning",
+    "yarn": "Yarn Store",
+    "waste": "Waste Store",
+    "tp_fibre": "Third Party Fibre",
+    "tp_yarn": "Third Party Yarn"
+  },
+  "fibres": [
+    {
+      "code": "MM-F-PSF14",
+      "name": "Polyester Staple Fibre 1.4D 38mm",
+      "group": "Polyester Fibre",
+      "rate": 355,
+      "reorder_to": 45000,
+      "opening": 60000,
+      "qi_template": "Polyester Staple Fibre - Incoming"
+    },
+    {
+      "code": "MM-F-PSFBK",
+      "name": "Polyester Fibre Black Dope-dyed 1.4D 38mm",
+      "group": "Polyester Fibre",
+      "rate": 410,
+      "reorder_to": 6000,
+      "opening": 25000,
+      "qi_template": "Polyester Staple Fibre - Incoming"
+    },
+    {
+      "code": "MM-F-VSF12",
+      "name": "Viscose Staple Fibre 1.2D 38mm",
+      "group": "Viscose Fibre",
+      "rate": 520,
+      "reorder_to": 22000,
+      "opening": 25000,
+      "qi_template": "Viscose Staple Fibre - Incoming"
+    },
+    {
+      "code": "MM-F-CTN",
+      "name": "Cotton Lint, Local Ginned",
+      "group": "Cotton Fibre",
+      "rate": 480,
+      "reorder_to": 12000,
+      "opening": 25000,
+      "qi_template": "Cotton Lint - Incoming"
+    }
+  ],
+  "yarns": [
+    {
+      "code": "MM-Y-20PV",
+      "name": "20/1 PV 65/35 Ring Spun",
+      "blend": {
+        "MM-F-PSF14": 65,
+        "MM-F-VSF12": 35
+      },
+      "yield": 95,
+      "ops": 8.4,
+      "rate": 652.7,
+      "weight": 4
+    },
+    {
+      "code": "MM-Y-30PV",
+      "name": "30/1 PV 52/48 Ring Spun",
+      "blend": {
+        "MM-F-PSF14": 52,
+        "MM-F-VSF12": 48
+      },
+      "yield": 94,
+      "ops": 7.2,
+      "rate": 738.3,
+      "weight": 2
+    },
+    {
+      "code": "MM-Y-24PC",
+      "name": "24/1 PC 50/50 Ring Spun",
+      "blend": {
+        "MM-F-PSF14": 50,
+        "MM-F-CTN": 50
+      },
+      "yield": 93,
+      "ops": 7.8,
+      "rate": 684.8,
+      "weight": 2
+    },
+    {
+      "code": "MM-Y-20MG",
+      "name": "20/1 Mid Grey 93/7",
+      "blend": {
+        "MM-F-PSF14": 93,
+        "MM-F-PSFBK": 7
+      },
+      "yield": 95,
+      "ops": 8.4,
+      "rate": 642.0,
+      "weight": 3
+    }
+  ],
+  "wastes": [
+    {
+      "code": "MM-W-SWP",
+      "name": "Sweeping Waste",
+      "rate": 60,
+      "per_100kg": 2
+    },
+    {
+      "code": "MM-W-HARD",
+      "name": "Hard Waste",
+      "rate": 120,
+      "per_100kg": 1
+    }
+  ],
+  "conversion": {
+    "_about": "Third-party (conversion) spinning: the customer supplies the fibre, the mill spins it and charges per kg of yarn. Fibre and yarn sit in the Third Party warehouses; item groups contain 'Third Party' so BOMs are tagged Conversion and work orders count in the Conversion stream.",
+    "share": 0.33,
+    "customer_group": "Conversion Customers",
+    "customers": [
+      "Delta Knitwear",
+      "Sunrise Weavers",
+      "Indus Home Linen"
+    ],
+    "fibre_group": "Third Party Fibre",
+    "yarn_group": "Third Party Yarn",
+    "fibres": [
+      {
+        "code": "MM-F-PSF14-TP",
+        "name": "Customer Polyester Fibre 1.4D (Third Party)",
+        "qi_template": "Polyester Staple Fibre - Incoming"
+      },
+      {
+        "code": "MM-F-VSF12-TP",
+        "name": "Customer Viscose Fibre 1.2D (Third Party)",
+        "qi_template": "Viscose Staple Fibre - Incoming"
+      },
+      {
+        "code": "MM-F-CTN-TP",
+        "name": "Customer Cotton Lint (Third Party)",
+        "qi_template": "Cotton Lint - Incoming"
+      }
+    ],
+    "yarns": [
+      {
+        "code": "MM-Y-20PV-TP",
+        "name": "20/1 PV 65/35 Conversion",
+        "blend": {
+          "MM-F-PSF14-TP": 65,
+          "MM-F-VSF12-TP": 35
+        },
+        "yield": 95,
+        "ops": 8.4,
+        "charge": 101.7,
+        "weight": 3
+      },
+      {
+        "code": "MM-Y-30PV-TP",
+        "name": "30/1 PV 52/48 Conversion",
+        "blend": {
+          "MM-F-PSF14-TP": 52,
+          "MM-F-VSF12-TP": 48
+        },
+        "yield": 94,
+        "ops": 7.2,
+        "charge": 126.3,
+        "weight": 1
+      },
+      {
+        "code": "MM-Y-20CT-TP",
+        "name": "20/1 Cotton Carded Conversion",
+        "blend": {
+          "MM-F-CTN-TP": 100
+        },
+        "yield": 90,
+        "ops": 8.0,
+        "charge": 112.4,
+        "weight": 2
+      }
+    ],
+    "extra_fibre_pct": 3,
+    "contract_terms": "Conversion (job-work) spinning contract.\n1. The customer supplies fibre at its own cost, delivered to the mill's Third Party Fibre store; ownership stays with the customer.\n2. The mill spins the agreed count and blend and returns the yarn from its Third Party Yarn store.\n3. Conversion charge per kg of yarn delivered, as per the sales order; sales tax extra.\n4. Normal process waste (up to 5% of fibre issued) is retained by the mill.\n5. Payment 30 days from invoice."
+  },
+  "operations": [
+    {
+      "operation": "Blow Room",
+      "minutes_per_100kg": 20,
+      "workstations": [
+        {
+          "name": "Blow Room Line 1",
+          "hour_rate": 2500
+        }
+      ]
+    },
+    {
+      "operation": "Carding",
+      "minutes_per_100kg": 60,
+      "workstations": [
+        {
+          "name": "Card 01",
+          "hour_rate": 1800
+        },
+        {
+          "name": "Card 02",
+          "hour_rate": 1800
+        }
+      ]
+    },
+    {
+      "operation": "Drawing",
+      "minutes_per_100kg": 30,
+      "workstations": [
+        {
+          "name": "Draw Frame 01",
+          "hour_rate": 1200
+        }
+      ]
+    },
+    {
+      "operation": "Simplex",
+      "minutes_per_100kg": 45,
+      "workstations": [
+        {
+          "name": "Simplex 01",
+          "hour_rate": 1500
+        }
+      ]
+    },
+    {
+      "operation": "Ring Spinning",
+      "minutes_per_100kg": 300,
+      "workstations": [
+        {
+          "name": "Ring Frame 01",
+          "hour_rate": 3000,
+          "spindles": 480
+        },
+        {
+          "name": "Ring Frame 02",
+          "hour_rate": 3000,
+          "spindles": 480
+        },
+        {
+          "name": "Ring Frame 03",
+          "hour_rate": 3000,
+          "spindles": 480
+        },
+        {
+          "name": "Ring Frame 04",
+          "hour_rate": 3000,
+          "spindles": 480
+        },
+        {
+          "name": "Ring Frame 05",
+          "hour_rate": 3000,
+          "spindles": 480
+        },
+        {
+          "name": "Ring Frame 06",
+          "hour_rate": 3000,
+          "spindles": 480
+        }
+      ]
+    },
+    {
+      "operation": "Auto Cone Winding",
+      "minutes_per_100kg": 90,
+      "workstations": [
+        {
+          "name": "Autocone 01",
+          "hour_rate": 2200
+        },
+        {
+          "name": "Autocone 02",
+          "hour_rate": 2200
+        }
+      ]
+    }
+  ],
+  "suppliers": [
+    "Alpha Fibre Supply Co.",
+    "Blue River Polymers",
+    "Zenith Viscose Traders",
+    "Five Rivers Cotton Ginners"
+  ],
+  "customers": [
+    "Green Valley Weaving",
+    "Starline Knits",
+    "Metro Denim Mills",
+    "Orient Home Textiles",
+    "Harbour Fabrics",
+    "Crescent Towel Works"
+  ],
+  "tax_rate": 18,
+  "season": {
+    "1": 0.85,
+    "2": 0.95,
+    "3": 1.05,
+    "4": 1.1,
+    "5": 1.2,
+    "6": 1.25,
+    "7": 1.1,
+    "8": 1.2,
+    "9": 1.0,
+    "10": 0.85,
+    "11": 0.9,
+    "12": 1.0
+  },
+  "load_shedding": {
+    "5": 0.55,
+    "6": 0.65,
+    "7": 0.6,
+    "8": 0.5,
+    "9": 0.35
+  },
+  "downtime_reasons": [
+    "Electricity down",
+    "Unplanned machine maintenance",
+    "Machine operator errors",
+    "Other"
+  ],
+  "price_inflation_per_month": 0.012,
+  "overheads": {
+    "_about": "Month-end Journal Entries for the mill's running costs, sized on that month's production (kg of yarn made) so cost per spindle and margins move with volume. Factory accounts are flagged CPS-applicable.",
+    "factory": [
+      {
+        "account": "Electricity and Power",
+        "per_kg": 50,
+        "summer_factor": 1.2
+      },
+      {
+        "account": "Machine Repairs and Spares",
+        "per_kg": 12
+      }
+    ],
+    "other": [
+      {
+        "account": "Freight Outward",
+        "per_kg_sold": 5
+      },
+      {
+        "account": "Office Salaries and Admin",
+        "per_month": 1500000
+      }
+    ]
+  },
+  "collections": {
+    "_about": "Customer payment behaviour.",
+    "pay_probability": 0.9,
+    "part_payment_share": 0.25,
+    "remainder_probability": 0.7,
+    "close_short_orders": 0.85,
+    "invoice_lag": {
+      "_about": "Days from delivery to invoice: weights per band; 'never' = delivered but not invoiced.",
+      "same_day": 0.7,
+      "1-3": 0.18,
+      "4-7": 0.05,
+      "8-30": 0.04,
+      "never": 0.03
+    }
+  },
+  "export": {
+    "_about": "Export orders: own yarn to foreign buyers under a confirmed LC (LC Proforma walks its approval workflow), shipped by sea with an Export Shipment. Some LCs are left open past expiry.",
+    "share": 0.2,
+    "customer_group": "Export Customers",
+    "premium": 1.04,
+    "port_of_loading": "Karachi",
+    "currency": "USD",
+    "usd_rate": 280,
+    "usd_drift_per_month": 0.004,
+    "advising_bank": "Faisal Commerce Bank (Advising)",
+    "shipping_lines": [
+      "MSC",
+      "Maersk",
+      "CMA CGM",
+      "COSCO",
+      "Hapag-Lloyd",
+      "ONE"
+    ],
+    "incoterms": [
+      "FOB",
+      "CFR",
+      "CIF"
+    ],
+    "late_ship_chance": 0.18,
+    "lc_left_open": 0.12,
+    "customers": [
+      {
+        "name": "Nordwind Textil GmbH",
+        "country": "Germany",
+        "port": "Hamburg",
+        "transit": 28,
+        "bank": "Nordbank Hamburg",
+        "weight": 3
+      },
+      {
+        "name": "Meghna Knit Composite Ltd",
+        "country": "Bangladesh",
+        "port": "Chittagong",
+        "transit": 12,
+        "bank": "Dhaka Commerce Bank",
+        "weight": 3
+      },
+      {
+        "name": "Riverside Weaving Co",
+        "country": "China",
+        "port": "Ningbo",
+        "transit": 18,
+        "bank": "Zhejiang Trade Bank",
+        "weight": 2
+      },
+      {
+        "name": "Atlantic Home Fashions Inc",
+        "country": "United States",
+        "port": "New York",
+        "transit": 36,
+        "bank": "Hudson Commercial Bank",
+        "weight": 1
+      },
+      {
+        "name": "Pennine Yarn Traders Ltd",
+        "country": "United Kingdom",
+        "port": "Felixstowe",
+        "transit": 30,
+        "bank": "Midlands Trade Bank",
+        "weight": 1
+      },
+      {
+        "name": "Bursa Denim Tekstil",
+        "country": "Turkey",
+        "port": "Mersin",
+        "transit": 16,
+        "bank": "Anatolia Ticaret Bank",
+        "weight": 1
+      }
+    ]
+  },
+  "import": {
+    "_about": "Imported fibre: Import Shipment (ETD/ETA/arrival/clearance), Purchase Receipt at clearance, Import Cost Sheet and a Landed Cost Voucher that puts freight, insurance, duties and clearing into stock value (sales tax and s.148 income tax are claimable, not cost).",
+    "share": 0.25,
+    "supplier_group": "Import Suppliers",
+    "port_of_discharge": "Karachi",
+    "clearing_agent": "Portside Clearing & Forwarding",
+    "charges_account": "Import Duties and Freight Payable",
+    "dwell_days": [
+      3,
+      8
+    ],
+    "late_chance": 0.12,
+    "rates": {
+      "freight": 0.045,
+      "insurance": 0.005,
+      "customs_duty": 0.08,
+      "additional_duty": 0.02,
+      "regulatory_duty": 0.017,
+      "sales_tax": 0.18,
+      "income_tax_148": 0.055,
+      "clearing_charges": 0.003,
+      "port_charges": 0.004,
+      "other_charges": 0.002
+    },
+    "suppliers": [
+      {
+        "name": "Hanseong Polyester Co",
+        "country": "Korea, Republic of",
+        "port": "Busan",
+        "transit": 24,
+        "fibres": [
+          "MM-F-PSF14",
+          "MM-F-PSFBK"
+        ],
+        "shipping_line": "HMM"
+      },
+      {
+        "name": "Sumatra Viscose Industries",
+        "country": "Indonesia",
+        "port": "Belawan",
+        "transit": 18,
+        "fibres": [
+          "MM-F-VSF12"
+        ],
+        "shipping_line": "Evergreen"
+      },
+      {
+        "name": "Gulf Coast Cotton Exporters",
+        "country": "United States",
+        "port": "Houston",
+        "transit": 38,
+        "fibres": [
+          "MM-F-CTN"
+        ],
+        "shipping_line": "Maersk"
+      }
+    ]
+  },
+  "hr": {
+    "_about": "Mill workforce: departments, designations, 3 shifts + general, Sunday holidays, monthly joiners/leavers, daily attendance (present / absent / on leave), casual leave applications.",
+    "headcount": 60,
+    "joiners_per_month": [
+      1,
+      4
+    ],
+    "leavers_per_month": [
+      0,
+      4
+    ],
+    "absence_rate": 0.05,
+    "summer_absence_extra": 0.02,
+    "leave_rate": 0.02,
+    "holidays": [
+      "08-14",
+      "03-23",
+      "05-01",
+      "12-25",
+      "11-09"
+    ],
+    "departments": [
+      {
+        "name": "Blow Room & Carding",
+        "share": 0.16,
+        "designations": [
+          "Machine Operator",
+          "Jobber"
+        ],
+        "kind": "worker"
+      },
+      {
+        "name": "Drawing & Simplex",
+        "share": 0.14,
+        "designations": [
+          "Machine Operator",
+          "Jobber"
+        ],
+        "kind": "worker"
+      },
+      {
+        "name": "Ring Spinning",
+        "share": 0.3,
+        "designations": [
+          "Doffer",
+          "Machine Operator",
+          "Jobber"
+        ],
+        "kind": "worker"
+      },
+      {
+        "name": "Auto Cone",
+        "share": 0.14,
+        "designations": [
+          "Machine Operator",
+          "Jobber"
+        ],
+        "kind": "worker"
+      },
+      {
+        "name": "Maintenance",
+        "share": 0.1,
+        "designations": [
+          "Fitter",
+          "Electrician"
+        ],
+        "kind": "worker"
+      },
+      {
+        "name": "Quality Lab",
+        "share": 0.05,
+        "designations": [
+          "Lab Technician"
+        ],
+        "kind": "staff"
+      },
+      {
+        "name": "Administration",
+        "share": 0.11,
+        "designations": [
+          "Accountant",
+          "Store Keeper",
+          "Supervisor",
+          "Manager"
+        ],
+        "kind": "staff"
+      }
+    ],
+    "shifts": [
+      {
+        "name": "Mill Shift A",
+        "start": "06:00:00",
+        "end": "14:00:00"
+      },
+      {
+        "name": "Mill Shift B",
+        "start": "14:00:00",
+        "end": "22:00:00"
+      },
+      {
+        "name": "Mill Shift C",
+        "start": "22:00:00",
+        "end": "06:00:00"
+      },
+      {
+        "name": "Mill General Shift",
+        "start": "09:00:00",
+        "end": "17:00:00"
+      }
+    ],
+    "male_names": [
+      "Muhammad Asif",
+      "Ali Raza",
+      "Usman Ghani",
+      "Imran Khan",
+      "Bilal Ahmed",
+      "Hamza Iqbal",
+      "Tariq Mehmood",
+      "Kashif Nawaz",
+      "Zeeshan Ali",
+      "Naveed Akhtar",
+      "Shahid Hussain",
+      "Waqas Anwar",
+      "Adnan Saleem",
+      "Faisal Javed",
+      "Junaid Aslam",
+      "Rizwan Qadir",
+      "Sajid Latif",
+      "Arshad Mahmood",
+      "Irfan Yousaf",
+      "Nadeem Abbas"
+    ],
+    "female_names": [
+      "Ayesha Siddiqui",
+      "Sana Tariq",
+      "Fatima Noor",
+      "Hina Aslam",
+      "Rabia Khalid",
+      "Saima Bashir"
+    ],
+    "female_share": 0.08,
+    "employment_types": [
+      {
+        "name": "Full-time",
+        "share": 0.62
+      },
+      {
+        "name": "Probation",
+        "share": 0.12
+      },
+      {
+        "name": "Contract",
+        "share": 0.12
+      },
+      {
+        "name": "Trainee",
+        "share": 0.08
+      },
+      {
+        "name": "Part-time",
+        "share": 0.06
+      }
+    ],
+    "probation_months": 3
+  },
+  "payroll": {
+    "_about": "Pakistan salaried payroll: Basic = base ÷ 1.65, House Rent 45% of basic, Utilities 10%, Medical 10% (tax exempt up to 10% of basic); deductions EOBI (1% of minimum wage), Provident Fund 8.33% of basic for staff, and income tax on the FBR salaried slabs through an Income Tax Slab and Payroll Periods (Jul–Jun). Monthly Payroll Entry on attendance; accrual on submit; salaries paid from the payroll bank 5 days later.",
+    "structure": "MicroMax PK Salary Structure",
+    "eobi": 400,
+    "base": {
+      "worker": [
+        34000,
+        46000
+      ],
+      "staff": [
+        60000,
+        140000
+      ]
+    },
+    "increment_month": 7,
+    "increment_pct": 0.08,
+    "wages_account": "Factory Wages",
+    "payable_account": "Payroll Payable",
+    "eobi_account": "EOBI Payable",
+    "tax_account": "Salary Income Tax Payable",
+    "pay_after_days": 5,
+    "pf_rate": 0.0833,
+    "tax_slab": {
+      "name": "Pakistan Salaried FY 2025-26",
+      "effective_from": "2025-07-01",
+      "slabs": [
+        [
+          0,
+          600000,
+          0
+        ],
+        [
+          600000,
+          1200000,
+          1
+        ],
+        [
+          1200000,
+          2200000,
+          11
+        ],
+        [
+          2200000,
+          3200000,
+          23
+        ],
+        [
+          3200000,
+          4100000,
+          30
+        ],
+        [
+          4100000,
+          0,
+          35
+        ]
+      ]
+    }
+  },
+  "quality": {
+    "templates": [
+      {
+        "name": "Yarn Packing - Outgoing",
+        "parameters": [
+          {
+            "specification": "Cone weight (kg)",
+            "min": 1.85,
+            "max": 1.95,
+            "numeric": 1
+          },
+          {
+            "specification": "Bag gross weight (kg)",
+            "min": 45.3,
+            "max": 45.6,
+            "numeric": 1
+          },
+          {
+            "specification": "Moisture %",
+            "min": 0.0,
+            "max": 3.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Cone defects per 100 cones",
+            "min": 0.0,
+            "max": 2.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Shade matching",
+            "min": 0.0,
+            "max": 0.0,
+            "numeric": 0
+          },
+          {
+            "specification": "Label & lot check",
+            "min": 0.0,
+            "max": 0.0,
+            "numeric": 0
+          }
+        ]
+      },
+      {
+        "name": "Ring Spun Yarn - Lab Test",
+        "parameters": [
+          {
+            "specification": "Count deviation %",
+            "min": -2.0,
+            "max": 2.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Count CV %",
+            "min": 0.0,
+            "max": 2.0,
+            "numeric": 1
+          },
+          {
+            "specification": "CSP (count strength product)",
+            "min": 2200.0,
+            "max": 1000000000.0,
+            "numeric": 1
+          },
+          {
+            "specification": "RKM (cN/tex)",
+            "min": 16.0,
+            "max": 1000000000.0,
+            "numeric": 1
+          },
+          {
+            "specification": "RKM CV %",
+            "min": 0.0,
+            "max": 9.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Elongation %",
+            "min": 6.0,
+            "max": 14.0,
+            "numeric": 1
+          },
+          {
+            "specification": "TPI",
+            "min": 12.0,
+            "max": 30.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Twist CV %",
+            "min": 0.0,
+            "max": 5.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Moisture %",
+            "min": 0.0,
+            "max": 3.0,
+            "numeric": 1
+          },
+          {
+            "specification": "U %",
+            "min": 0.0,
+            "max": 12.0,
+            "numeric": 1
+          },
+          {
+            "specification": "CVm %",
+            "min": 0.0,
+            "max": 15.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Thin places -50% /km",
+            "min": 0.0,
+            "max": 10.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Thick places +50% /km",
+            "min": 0.0,
+            "max": 50.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Neps +200% /km",
+            "min": 0.0,
+            "max": 80.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Total IPI /km",
+            "min": 0.0,
+            "max": 140.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Hairiness H",
+            "min": 0.0,
+            "max": 7.0,
+            "numeric": 1
+          }
+        ]
+      },
+      {
+        "name": "Draw Sliver & Roving - In Process",
+        "parameters": [
+          {
+            "specification": "Draw sliver U %",
+            "min": 0.0,
+            "max": 3.5,
+            "numeric": 1
+          },
+          {
+            "specification": "Draw sliver hank CV %",
+            "min": 0.0,
+            "max": 1.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Roving hank (Ne)",
+            "min": 0.8,
+            "max": 1.2,
+            "numeric": 1
+          },
+          {
+            "specification": "Roving U %",
+            "min": 0.0,
+            "max": 5.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Roving TPI",
+            "min": 1.0,
+            "max": 1.6,
+            "numeric": 1
+          }
+        ]
+      },
+      {
+        "name": "Card Sliver - In Process",
+        "parameters": [
+          {
+            "specification": "Card sliver hank (Ne)",
+            "min": 0.11,
+            "max": 0.13,
+            "numeric": 1
+          },
+          {
+            "specification": "Sliver hank CV %",
+            "min": 0.0,
+            "max": 2.5,
+            "numeric": 1
+          },
+          {
+            "specification": "Card web neps / gram",
+            "min": 0.0,
+            "max": 40.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Card waste %",
+            "min": 3.0,
+            "max": 6.0,
+            "numeric": 1
+          }
+        ]
+      },
+      {
+        "name": "Acrylic Fibre - Incoming",
+        "parameters": [
+          {
+            "specification": "Denier deviation %",
+            "min": -5.0,
+            "max": 5.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Staple length (mm)",
+            "min": 36.0,
+            "max": 52.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Tenacity (cN/dtex)",
+            "min": 2.5,
+            "max": 3.5,
+            "numeric": 1
+          },
+          {
+            "specification": "Elongation at break %",
+            "min": 30.0,
+            "max": 45.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Moisture %",
+            "min": 0.0,
+            "max": 2.0,
+            "numeric": 1
+          }
+        ]
+      },
+      {
+        "name": "Cotton Lint - Incoming",
+        "parameters": [
+          {
+            "specification": "Micronaire",
+            "min": 3.8,
+            "max": 4.9,
+            "numeric": 1
+          },
+          {
+            "specification": "UHML (mm)",
+            "min": 27.0,
+            "max": 31.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Strength (g/tex)",
+            "min": 27.0,
+            "max": 33.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Uniformity index %",
+            "min": 80.0,
+            "max": 86.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Short fibre content %",
+            "min": 0.0,
+            "max": 12.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Trash %",
+            "min": 0.0,
+            "max": 4.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Moisture %",
+            "min": 0.0,
+            "max": 8.5,
+            "numeric": 1
+          }
+        ]
+      },
+      {
+        "name": "Viscose Staple Fibre - Incoming",
+        "parameters": [
+          {
+            "specification": "Denier deviation %",
+            "min": -5.0,
+            "max": 5.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Staple length (mm)",
+            "min": 36.0,
+            "max": 52.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Tenacity (cN/dtex)",
+            "min": 2.2,
+            "max": 3.2,
+            "numeric": 1
+          },
+          {
+            "specification": "Elongation at break %",
+            "min": 17.0,
+            "max": 25.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Moisture regain %",
+            "min": 11.0,
+            "max": 13.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Whiteness index",
+            "min": 70.0,
+            "max": 100.0,
+            "numeric": 1
+          }
+        ]
+      },
+      {
+        "name": "Polyester Staple Fibre - Incoming",
+        "parameters": [
+          {
+            "specification": "Denier deviation %",
+            "min": -5.0,
+            "max": 5.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Staple length (mm)",
+            "min": 36.0,
+            "max": 52.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Tenacity (cN/dtex)",
+            "min": 5.0,
+            "max": 7.5,
+            "numeric": 1
+          },
+          {
+            "specification": "Elongation at break %",
+            "min": 18.0,
+            "max": 35.0,
+            "numeric": 1
+          },
+          {
+            "specification": "Moisture %",
+            "min": 0.0,
+            "max": 0.8,
+            "numeric": 1
+          },
+          {
+            "specification": "Spin finish OPU %",
+            "min": 0.08,
+            "max": 0.2,
+            "numeric": 1
+          },
+          {
+            "specification": "Crimp per cm",
+            "min": 4.0,
+            "max": 7.0,
+            "numeric": 1
+          }
+        ]
+      }
+    ],
+    "procedures": [
+      "Non Conformance & CAPA",
+      "Instrument Calibration",
+      "Contamination Control",
+      "Packing & Dispatch Inspection",
+      "Yarn Lab Testing",
+      "Process Control (Blowroom to Simplex)",
+      "Raw Fibre Receiving & Testing",
+      "QMS - Spinning Mill"
+    ],
+    "goals": [
+      {
+        "goal": "Dispatch without packing defects",
+        "procedure": "Packing & Dispatch Inspection",
+        "frequency": "Monthly",
+        "objectives": [
+          {
+            "objective": "Dispatch inspections accepted",
+            "target": "99",
+            "uom": "Percent"
+          }
+        ]
+      },
+      {
+        "goal": "Right-first-time yarn lots",
+        "procedure": "Yarn Lab Testing",
+        "frequency": "Monthly",
+        "objectives": [
+          {
+            "objective": "Yarn lots accepted at first test",
+            "target": "95",
+            "uom": "Percent"
+          }
+        ]
+      },
+      {
+        "goal": "Incoming fibre acceptance",
+        "procedure": "Raw Fibre Receiving & Testing",
+        "frequency": "Monthly",
+        "objectives": [
+          {
+            "objective": "Fibre lots accepted",
+            "target": "97",
+            "uom": "Percent"
+          }
+        ]
+      },
+      {
+        "goal": "Yarn evenness within limits",
+        "procedure": "Yarn Lab Testing",
+        "frequency": "Monthly",
+        "objectives": [
+          {
+            "objective": "Lots with U% within limit",
+            "target": "98",
+            "uom": "Percent"
+          }
+        ]
+      }
+    ],
+    "_about": "Inspection templates, procedures and monthly goals (exported from the reference site). Incoming QIs on fibre receipts, in-process + lab QIs on each lot, outgoing QIs on deliveries; rejections raise Non Conformances, failed monthly goal reviews raise corrective actions.",
+    "reject_rate": {
+      "Incoming": 0.04,
+      "In Process": 0.03,
+      "Outgoing": 0.02
+    },
+    "worst_supplier": "Five Rivers Cotton Ginners",
+    "worst_supplier_factor": 4,
+    "in_process_templates": [
+      "Card Sliver - In Process",
+      "Draw Sliver & Roving - In Process"
+    ],
+    "lab_template": "Ring Spun Yarn - Lab Test",
+    "outgoing_template": "Yarn Packing - Outgoing",
+    "outgoing_share": 0.5,
+    "nc_procedure": {
+      "Incoming": "Raw Fibre Receiving & Testing",
+      "In Process": "Process Control (Blowroom to Simplex)",
+      "Lab": "Yarn Lab Testing",
+      "Outgoing": "Packing & Dispatch Inspection"
+    },
+    "goal_metric": {
+      "Incoming fibre acceptance": "Incoming",
+      "Right-first-time yarn lots": "Lab",
+      "Dispatch without packing defects": "Outgoing",
+      "Yarn evenness within limits": "Evenness"
+    }
+  },
+  "assets": {
+    "_about": "Fixed assets: categories with straight-line books, opening mill assets (bought before the run), additions bought through the run, monthly depreciation, quarterly movements; a few additions left in Draft (not capitalised).",
+    "locations": [
+      "Mill Floor",
+      "Utility Area",
+      "Workshop",
+      "Head Office"
+    ],
+    "categories": [
+      {
+        "name": "Spinning Machinery",
+        "life_months": 120
+      },
+      {
+        "name": "Utilities and Power",
+        "life_months": 120
+      },
+      {
+        "name": "Vehicles",
+        "life_months": 60
+      },
+      {
+        "name": "IT and Office Equipment",
+        "life_months": 36
+      }
+    ],
+    "items": [
+      {
+        "code": "MM-A-RINGFRAME",
+        "name": "Ring Frame 480 Spindles",
+        "category": "Spinning Machinery",
+        "cost": 4750000,
+        "location": "Mill Floor"
+      },
+      {
+        "code": "MM-A-CARD",
+        "name": "Carding Machine",
+        "category": "Spinning Machinery",
+        "cost": 3100000,
+        "location": "Mill Floor"
+      },
+      {
+        "code": "MM-A-AUTOCONE",
+        "name": "Autocone Winder 60 Drums",
+        "category": "Spinning Machinery",
+        "cost": 7250000,
+        "location": "Mill Floor"
+      },
+      {
+        "code": "MM-A-GENSET",
+        "name": "Gas Generator 1 MW",
+        "category": "Utilities and Power",
+        "cost": 19000000,
+        "location": "Utility Area"
+      },
+      {
+        "code": "MM-A-COMPRESSOR",
+        "name": "Air Compressor",
+        "category": "Utilities and Power",
+        "cost": 2100000,
+        "location": "Utility Area"
+      },
+      {
+        "code": "MM-A-FORKLIFT",
+        "name": "Forklift 3 Ton",
+        "category": "Vehicles",
+        "cost": 1550000,
+        "location": "Workshop"
+      },
+      {
+        "code": "MM-A-LAPTOP",
+        "name": "Laptop Computer",
+        "category": "IT and Office Equipment",
+        "cost": 110000,
+        "location": "Head Office"
+      }
+    ],
+    "opening": [
+      {
+        "item": "MM-A-RINGFRAME",
+        "count": 6,
+        "age_months": [
+          18,
+          40
+        ]
+      },
+      {
+        "item": "MM-A-CARD",
+        "count": 2,
+        "age_months": [
+          24,
+          48
+        ]
+      },
+      {
+        "item": "MM-A-AUTOCONE",
+        "count": 2,
+        "age_months": [
+          12,
+          30
+        ]
+      },
+      {
+        "item": "MM-A-GENSET",
+        "count": 1,
+        "age_months": [
+          30,
+          30
+        ]
+      },
+      {
+        "item": "MM-A-COMPRESSOR",
+        "count": 2,
+        "age_months": [
+          20,
+          36
+        ]
+      },
+      {
+        "item": "MM-A-FORKLIFT",
+        "count": 1,
+        "age_months": [
+          15,
+          15
+        ]
+      },
+      {
+        "item": "MM-A-LAPTOP",
+        "count": 6,
+        "age_months": [
+          6,
+          24
+        ]
+      }
+    ],
+    "additions": [
+      {
+        "item": "MM-A-RINGFRAME",
+        "month": 3,
+        "count": 1
+      },
+      {
+        "item": "MM-A-LAPTOP",
+        "month": 4,
+        "count": 3
+      },
+      {
+        "item": "MM-A-COMPRESSOR",
+        "month": 8,
+        "count": 1
+      },
+      {
+        "item": "MM-A-AUTOCONE",
+        "month": 10,
+        "count": 1
+      },
+      {
+        "item": "MM-A-FORKLIFT",
+        "month": 12,
+        "count": 1
+      },
+      {
+        "item": "MM-A-LAPTOP",
+        "month": 13,
+        "count": 2
+      }
+    ],
+    "draft_share": 0.2,
+    "movements_per_quarter": 2
+  },
+  "company_setup": {
+    "_about": "Company-level setup the generator applies before transactions: a numbered chart of accounts, cost centres (head office + two mills), four bank accounts, two cash-in-hand accounts, a waste-sales income account, tax categories on the tax templates and PKR as the default currency.",
+    "currency": "PKR",
+    "number_accounts": 1,
+    "cost_centers": [
+      {
+        "key": "main",
+        "name": "Main",
+        "about": "Head office: admin, selling, finance"
+      },
+      {
+        "key": "mill1",
+        "name": "Mills-1",
+        "about": "Unit 1: own-yarn production"
+      },
+      {
+        "key": "mill2",
+        "name": "Mills-2",
+        "about": "Unit 2: own-yarn and conversion"
+      }
+    ],
+    "banks": [
+      {
+        "bank": "MCB Bank",
+        "account": "MCB Bank - Current",
+        "account_no": "0012-00456-78901",
+        "branch": "Susan Road, Faisalabad",
+        "weight": 4,
+        "default": 1
+      },
+      {
+        "bank": "Meezan Bank",
+        "account": "Meezan Bank - Current",
+        "account_no": "0102-0104-567890",
+        "branch": "Kohinoor City, Faisalabad",
+        "weight": 2
+      },
+      {
+        "bank": "Habib Bank Limited",
+        "account": "HBL - Payroll",
+        "account_no": "1234-7900-112233",
+        "branch": "Jaranwala Road, Faisalabad",
+        "weight": 2,
+        "payroll": 1
+      },
+      {
+        "bank": "Allied Bank Limited",
+        "account": "ABL - Collections",
+        "account_no": "0010-0056-789012",
+        "branch": "D Ground, Faisalabad",
+        "weight": 2
+      }
+    ],
+    "cash": [
+      {
+        "key": "mills",
+        "account": "Cash in Hand - Mills",
+        "float": 250000
+      },
+      {
+        "key": "head_office",
+        "account": "Cash in Hand - Head Office",
+        "float": 400000,
+        "default": 1
+      }
+    ],
+    "waste_sales": {
+      "account": "Waste Sales",
+      "customers": [
+        "Faisalabad Waste Traders",
+        "Lyallpur Cotton Waste Co"
+      ],
+      "sell_share": [
+        0.7,
+        0.95
+      ],
+      "rate_factor": 1.0
+    },
+    "tax_categories": {
+      "sales": "Registered (GST)",
+      "purchase": "Registered (GST)",
+      "export": "Export (Zero-rated)",
+      "unregistered": "Unregistered"
+    }
+  },
+  "planning": {
+    "_about": "Order-to-production behaviour that feeds the SO / DO / WO / Job Card analyses.",
+    "planners": [
+      "Imran Siddiqui",
+      "Sadia Batool",
+      "Kamran Akhtar",
+      "Noman Rafiq",
+      "Ayesha Malik",
+      "Rehan Qureshi"
+    ],
+    "rush_share": 0.14,
+    "rush_days": [
+      3,
+      6
+    ],
+    "hold_share": 0.05,
+    "wo_due": {
+      "early": 0.3,
+      "on_the_day": 0.33,
+      "late": 0.37,
+      "early_days": [
+        1,
+        5
+      ],
+      "late_days": [
+        1,
+        12
+      ]
+    },
+    "mill_share": {
+      "mill1": 0.55,
+      "mill2": 0.45
+    },
+    "open_tail_days": 4,
+    "rework_share": 0.06,
+    "rework_operation": "Rework - Rewinding",
+    "on_hold_share": 0.25,
+    "queue_hours": [
+      0.5,
+      10
+    ]
+  },
+  "buying": {
+    "_about": "Purchase behaviour for the Buying Cycle dashboard: some lots received the same / next day (quick purchases), a few lines keyed at a suspect rate (per bale instead of per kg).",
+    "quick_share": 0.15,
+    "suspect_share": 0.03,
+    "suspect_factor": [
+      3.2,
+      4.5
+    ]
+  },
+  "equity": {
+    "_about": "Shareholders' equity: paid-up share capital issued to the shareholders when the run starts (cash into the bank), a rights issue at a premium mid-year (BMR expansion), and a final cash dividend declared after the tax year closes, paid net of 15% withholding tax.",
+    "share_type": "Equity",
+    "face_value": 10,
+    "accounts": {
+      "capital": "Paid-up Share Capital",
+      "premium": "Share Premium Reserve",
+      "dividend_payable": "Dividends Payable",
+      "dividend_wht": "Withholding Tax on Dividends Payable",
+      "dividends": "Dividends Paid"
+    },
+    "shareholders": [
+      {
+        "name": "Tariq Mahmood Sheikh",
+        "shares": 6000000,
+        "folio": "F-0001"
+      },
+      {
+        "name": "Nadia Tariq Sheikh",
+        "shares": 3500000,
+        "folio": "F-0002"
+      },
+      {
+        "name": "Lyallpur Holdings (Pvt) Ltd",
+        "shares": 4000000,
+        "folio": "F-0003"
+      },
+      {
+        "name": "Sheikh Family Trust",
+        "shares": 1500000,
+        "folio": "F-0004"
+      }
+    ],
+    "rights_issue": {
+      "month": 8,
+      "day": 12,
+      "ratio": 0.15,
+      "rate": 12,
+      "purpose": "BMR: new ring frame and autocone"
+    },
+    "dividend": {
+      "declare": "09-12",
+      "pay_after_days": 14,
+      "per_share": 0.3,
+      "wht": 0.15
+    }
+  }
+}

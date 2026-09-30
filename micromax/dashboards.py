@@ -337,7 +337,7 @@ def _sales(ctx):
     widgets = [
         _w("trend", _("Sales & quantity"), "combo", [{"month": r["month"], "v": r["v"], "q": r["q"]} for r in m_si], _("Net sales (bars) and quantity (line)"),
            money=True, span=2, dualAxis=True,
-           series=[{"key": "v", "label": _("Net sales")}, {"key": "q", "label": _("Quantity"), "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
+           series=[{"key": "v", "label": _("Net sales")}, {"key": "q", "label": _("Quantity"), "format": "number", "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
         _w("groups", _("Sales by item group"), "donut", _pairs([{"label": k, "v": v} for k, v in groups.items()], limit=6), money=True),
         _w("flow", _("Ordered → invoiced → collected"), "line", flow, _("Monthly order book, billing and cash in"), money=True, span=2,
            series=[{"key": "ordered", "label": _("Ordered")}, {"key": "invoiced", "label": _("Invoiced")}, {"key": "collected", "label": _("Collected")}]),
@@ -369,6 +369,10 @@ def _purchase(ctx):
           and posting_date between %(f)s and %(t)s {ctx.co()} group by m""")
     m_pi, m_po = ctx.monthly(pi, fields=("v", "n", "tax")), ctx.monthly(po, fields=("v", "n"))
     m_pr, m_pe = ctx.monthly(pr), ctx.monthly(pe)
+    po_qty = ctx.sql(f"""
+        select date_format(transaction_date, '%%Y-%%m') m, sum(total_qty) v from `tabPurchase Order`
+        where docstatus = 1 and transaction_date between %(f)s and %(t)s {ctx.co()} group by m""")
+    m_poq = {r["month"]: r["v"] for r in ctx.monthly(po_qty)}
     po_tot, po_n = sum(r["v"] for r in m_po), sum(r["n"] for r in m_po)
 
     sup = ctx.sql(f"""select supplier label, sum(base_net_total) v from `tabPurchase Invoice`
@@ -409,8 +413,10 @@ def _purchase(ctx):
         _w("po_status", _("Purchase order status"), "pie", _pairs(po_status)),
         _w("mr_status", _("Material requests by status"), "bar", [{"status": r["label"], "v": r["value"]} for r in _pairs(mr_status)],
            xKey="status", series=[{"key": "v", "label": _("Requests")}], span=2),
-        _w("received", _("Quantity received"), "bar", [{"month": r["month"], "v": r["v"]} for r in m_pr], _("Purchase receipts, stock units"),
-           series=[{"key": "v", "label": _("Qty"), "color": "hsl(199 89% 48%)"}]),
+        _w("received", _("Quantity ordered vs received"), "bar",
+           [{"month": r["month"], "ordered": m_poq.get(r["month"], 0), "v": r["v"]} for r in m_pr], _("Purchase orders and receipts, stock units"),
+           series=[{"key": "ordered", "label": _("Ordered"), "color": "hsl(215 16% 65%)"}, {"key": "v", "label": _("Received"), "color": "hsl(199 89% 48%)"}],
+           span=3),
     ]
     return kpis, widgets
 
@@ -502,6 +508,9 @@ def _hr(ctx):
         days_seen.setdefault(k, set()).add(r.d)
     for k, b in roll.items():
         b["d"] = len(days_seen[k])
+    strength = ctx.sql(f"""select date_format(attendance_date, '%%Y-%%m') m, count(distinct employee) v from `tabAttendance`
+        where docstatus = 1 and attendance_date between %(f)s and %(t)s {co} group by m""")
+    m_str = {r["month"]: r["v"] for r in ctx.monthly(strength)}
     m_att = ctx.monthly(list(roll.values()), fields=("p", "a", "l", "h", "d"))
     rate = [((r["p"] + r["h"] / 2) / (r["p"] + r["a"] + r["l"] + r["h"]) * 100) if (r["p"] + r["a"] + r["l"] + r["h"]) else 0 for r in m_att]
     tp, ta, tl, th = (sum(r[k] for r in m_att) for k in ("p", "a", "l", "h"))
@@ -539,8 +548,11 @@ def _hr(ctx):
            series=[{"key": "present", "label": _("Present"), "color": "hsl(160 84% 39%)"}, {"key": "absent", "label": _("Absent"), "color": "hsl(351 95% 59%)"},
                    {"key": "leave", "label": _("On leave"), "color": "hsl(35 92% 50%)"}]),
         _w("gender", _("Gender mix"), "donut", _pairs(gender)),
-        _w("rate", _("Attendance rate trend"), "line", [{"month": r["month"], "rate": round(x, 1)} for r, x in zip(m_att, rate)],
-           _("Present (half days count ½) as % of marked"), series=[{"key": "rate", "label": _("Attendance %")}], span=2, percent=True),
+        _w("rate", _("Attendance rate trend"), "combo",
+           [{"month": r["month"], "strength": m_str.get(r["month"], 0), "rate": round(x, 1)} for r, x in zip(m_att, rate)],
+           _("Workforce strength (employees marked, bars) and attendance % (line, half days count ½)"), span=2, dualAxis=True,
+           series=[{"key": "strength", "label": _("Strength"), "format": "number", "color": "hsl(215 16% 65%)"},
+                   {"key": "rate", "label": _("Attendance %"), "type": "line", "axis": "right", "color": "hsl(160 84% 39%)"}]),
         _w("etype", _("Employment type"), "pie", _pairs(etype)),
         _w("dept", _("Headcount by department"), "barlist", _pairs(dept, limit=10, other=False)),
         _w("ages", _("Age profile"), "bar", [{"band": b, "v": flt(age_by.get(b))} for b in age_order], xKey="band",
@@ -572,6 +584,12 @@ def _payroll(ctx):
         from `tabSalary Slip` where docstatus = 1 and start_date between %(f)s and %(t)s {co} group by label""")
     band_by = {r.label: r.v for r in bands}
     runs = ctx.sql(f"""select count(*) n from `tabPayroll Entry` where docstatus = 1 and posting_date between %(f)s and %(t)s {co}""")[0].n
+    slab_rows, tax_total, slab_name = _payroll_tax_slabs(ctx)
+    ded_total = sum(flt(r.v) for r in comp if r.pf == "deductions")
+    comp_rows = [{"component": r.label, "type": _("Earning") if r.pf == "earnings" else _("Deduction"), "amount": round(flt(r.v), 2),
+                  "share": round(flt(r.v) / (g if r.pf == "earnings" else ded_total) * 100, 1) if (g if r.pf == "earnings" else ded_total) else 0,
+                  "per_slip": round(flt(r.v) / c, 2) if c else 0}
+                 for r in sorted(comp, key=lambda r: (r.pf != "earnings", -flt(r.v)))]
 
     kpis = [
         _kpi("gross", _("Gross pay"), g, monthly=[r["g"] for r in m]),
@@ -581,12 +599,14 @@ def _payroll(ctx):
         _kpi("employees", _("Employees paid"), emps, "number", monthly=[r["e"] for r in m]),
         _kpi("avg_gross", _("Average gross / slip"), g / c if c else 0, monthly=[(r["g"] / r["c"]) if r["c"] else 0 for r in m]),
         _kpi("slips", _("Salary slips"), c, "number", monthly=[r["c"] for r in m], hint=_("{0} payroll runs").format(runs)),
+        _kpi("income_tax", _("Income tax deducted"), tax_total, invert=True,
+             hint=_("Slab: {0}").format(slab_name) if slab_name else _("No income tax slab assigned")),
     ]
     widgets = [
         _w("trend", _("Payroll cost by month"), "combo", [{"month": r["month"], "gross": r["g"], "net": r["n"], "emp": r["e"]} for r in m],
            _("Gross and net pay, with employees paid"), money=True, span=2, dualAxis=True,
            series=[{"key": "gross", "label": _("Gross")}, {"key": "net", "label": _("Net"), "color": "hsl(160 84% 39%)"},
-                   {"key": "emp", "label": _("Employees"), "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
+                   {"key": "emp", "label": _("Employees"), "format": "number", "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
         _w("earnings", _("Earnings mix"), "donut", _pairs([r for r in comp if r.pf == "earnings"], limit=6), money=True),
         _w("dept", _("Gross pay by department"), "barlist", _pairs(dept, limit=10, other=False), money=True),
         _w("bands", _("Net pay distribution"), "bar", [{"band": b, "v": flt(band_by.get(b))} for b in ["< 15k", "15-25k", "25-35k", "35-50k", "50k+"]],
@@ -594,8 +614,57 @@ def _payroll(ctx):
         _w("deductions", _("Deductions mix"), "pie", _pairs([r for r in comp if r.pf == "deductions"], limit=6), money=True),
         _w("avg", _("Average gross per slip"), "area", [{"month": r["month"], "avg": round(r["g"] / r["c"], 2) if r["c"] else 0} for r in m],
            money=True, series=[{"key": "avg", "label": _("Average gross")}], span=2),
+        _w("components", _("Earnings & deductions"), "table", comp_rows, _("Every salary component paid or deducted in the period"), span=2, xKey="",
+           columns=[{"key": "component", "label": _("Component")}, {"key": "type", "label": _("Type")},
+                    {"key": "amount", "label": _("Amount"), "format": "money", "align": "right"},
+                    {"key": "share", "label": _("% of gross / deductions"), "format": "percent", "align": "right"},
+                    {"key": "per_slip", "label": _("Per slip"), "format": "money", "align": "right"}]),
+        _w("tax_slabs", _("Income tax slabs"), "table", slab_rows,
+           _("{0}: annual taxable salary bands, employees in each (annualised from the period) and tax deducted").format(slab_name)
+           if slab_name else _("No Income Tax Slab is assigned to this company's employees"), span=3, xKey="",
+           columns=[{"key": "band", "label": _("Annual taxable income")}, {"key": "rate", "label": _("Rate on excess"), "format": "percent", "align": "right"},
+                    {"key": "fixed", "label": _("Tax at band start"), "format": "money", "align": "right"},
+                    {"key": "employees", "label": _("Employees"), "format": "number", "align": "right"},
+                    {"key": "tax", "label": _("Tax deducted"), "format": "money", "align": "right"}]),
     ]
     return kpis, widgets
+
+
+def _payroll_tax_slabs(ctx):
+    """The Income Tax Slab on this company's salary structure assignments, each band with the tax due at its start,
+    the employees whose annualised taxable pay falls in it and the income tax deducted from them in the period."""
+    if not frappe.db.exists("DocType", "Income Tax Slab"):
+        return [], 0.0, None
+    slab = ctx.sql(f"""select income_tax_slab s, count(*) n from `tabSalary Structure Assignment`
+        where docstatus = 1 and ifnull(income_tax_slab, '') != '' {ctx.co()} group by income_tax_slab order by n desc limit 1""")
+    tax_comp = set(frappe.get_all("Salary Component", {"variable_based_on_taxable_salary": 1}, pluck="name"))
+    per_emp = ctx.sql(f"""select s.employee, count(distinct s.name) slips,
+            sum(case when d.parentfield = 'earnings' and ifnull(c.is_tax_applicable, 1) = 1 then d.amount else 0 end) taxable,
+            sum(case when d.parentfield = 'deductions' and d.salary_component in %(tc)s then d.amount else 0 end) tax
+        from `tabSalary Slip` s join `tabSalary Detail` d on d.parent = s.name and d.parenttype = 'Salary Slip'
+        left join `tabSalary Component` c on c.name = d.salary_component
+        where s.docstatus = 1 and s.start_date between %(f)s and %(t)s {ctx.co('s')} group by s.employee""",
+                      extra={"tc": tuple(tax_comp) or ("",)})
+    tax_total = sum(flt(r.tax) for r in per_emp)
+    if not slab:
+        return [], tax_total, None
+    bands = frappe.get_all("Taxable Salary Slab", {"parent": slab[0].s, "parenttype": "Income Tax Slab"},
+                           ["from_amount", "to_amount", "percent_deduction"], order_by="from_amount")
+    rows, fixed = [], 0.0
+    for b in bands:
+        lo, hi = flt(b.from_amount), flt(b.to_amount)
+        inside = [r for r in per_emp if r.slips and lo <= flt(r.taxable) / r.slips * 12 < (hi or float("inf"))]
+        rows.append({"band": f"{_money_short(lo)} – {_money_short(hi)}" if hi else _("Above {0}").format(_money_short(lo)),
+                     "rate": flt(b.percent_deduction), "fixed": round(fixed, 2), "employees": len(inside),
+                     "tax": round(sum(flt(r.tax) for r in inside), 2)})
+        if hi:
+            fixed += (hi - lo) * flt(b.percent_deduction) / 100
+    return rows, tax_total, slab[0].s
+
+
+def _money_short(v):
+    v = flt(v)
+    return f"{v / 1e6:g}M" if v >= 1e6 else f"{v / 1e3:g}k" if v >= 1e3 else f"{v:g}"
 
 
 # ----------------------------------------------------------------------------- production
@@ -648,14 +717,18 @@ def _production(ctx):
     fleet = ctx.sql(f"""select sum(spindles) installed, sum(if(status = 'Production', spindles, 0)) active from `tabWorkstation`
         where ifnull(disabled, 0) = 0""")[0] if frappe.db.has_column("Workstation", "spindles") else frappe._dict(installed=0, active=0)
 
+    # The unit most of the period's output is made in (a spinning mill: Kg), shown on quantity tiles and charts.
+    uom_row = ctx.sql(f"""select stock_uom u, sum(qty) q from `tabWork Order` where docstatus = 1
+        and work_order_date between %(f)s and %(t)s {co} group by stock_uom order by q desc limit 1""")
+    uom = f" ({uom_row[0].u})" if uom_row and uom_row[0].u else ""
     kpis = [
-        _kpi("planned", _("Planned quantity"), tot["planned"], "number", monthly=[r["planned"] for r in m]),
-        _kpi("produced", _("Produced quantity"), tot["produced"], "number", monthly=[r["produced"] for r in m]),
+        _kpi("planned", _("Planned quantity") + uom, tot["planned"], "number", monthly=[r["planned"] for r in m]),
+        _kpi("produced", _("Achieved quantity") + uom, tot["produced"], "number", monthly=[r["produced"] for r in m]),
         _kpi("achievement", _("Plan achievement"), tot["produced"] / tot["planned"] * 100 if tot["planned"] else 0, "percent",
              monthly=[r["achv"] for r in m]),
         _kpi("yield", _("Actual yield"), tot["yw"] / tot["yq"] if tot["yq"] else 0, "percent", monthly=[r["yield"] for r in m],
              hint=_("Target {0}% · {1} orders >100% excluded").format(round(tot["tyw"] / tot["tyq"], 1) if tot["tyq"] else 0, over100)),
-        _kpi("waste", _("Waste"), tot["waste"], "number", monthly=[r["waste"] for r in m], invert=True),
+        _kpi("waste", _("Waste") + uom, tot["waste"], "number", monthly=[r["waste"] for r in m], invert=True),
         _kpi("ops", _("Average OPS"), tot["ow"] / tot["oq"] if tot["oq"] else 0, "number", monthly=[r["ops"] for r in m],
              hint=_("Target {0} · weighted by spindles").format(round(tot["tow"] / tot["toq"], 2) if tot["toq"] else 0)),
         _kpi("orders", _("Work orders"), tot["n"], "number", monthly=[r["n"] for r in m]),
@@ -666,8 +739,8 @@ def _production(ctx):
     ]
     widgets = [
         _w("output", _("Planned vs produced"), "combo", [{"month": r["month"], "planned": r["planned"], "produced": r["produced"], "achv": r["achv"]} for r in m],
-           _("Quantity by month, with plan achievement %"), span=2, dualAxis=True,
-           series=[{"key": "planned", "label": _("Planned"), "color": "hsl(215 16% 65%)"}, {"key": "produced", "label": _("Produced")},
+           _("Quantity{0} by month, with plan achievement %").format(uom), span=2, dualAxis=True,
+           series=[{"key": "planned", "label": _("Planned") + uom, "color": "hsl(215 16% 65%)"}, {"key": "produced", "label": _("Achieved") + uom},
                    {"key": "achv", "label": _("Achievement %"), "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
         _w("status", _("Work order status"), "donut", _pairs(status)),
         _w("cps", _("Cost and cost per spindle"), "combo", [{"month": r["month"], "cost": round(r["v"], 2), "cps": r["cps"]} for r in m_cps],
@@ -675,12 +748,13 @@ def _production(ctx):
            series=[{"key": "cost", "label": _("CPS cost"), "color": "hsl(215 16% 65%)"},
                    {"key": "cps", "label": _("Cost per spindle"), "type": "line", "axis": "right", "color": "hsl(351 95% 59%)"}]),
         _w("yield", _("Yield: target vs actual"), "line", [{"month": r["month"], "target": r["target"], "actual": r["yield"]} for r in m],
-           _("Output-weighted, %"), percent=True, span=2,
-           series=[{"key": "target", "label": _("Target"), "color": "hsl(215 16% 65%)"}, {"key": "actual", "label": _("Actual"), "color": "hsl(160 84% 39%)"}]),
+           _("Output-weighted, % (axis fitted to the data; target dashed)"), percent=True, span=2, zoom=True,
+           series=[{"key": "target", "label": _("Target"), "color": "hsl(35 92% 50%)", "dashed": True},
+                   {"key": "actual", "label": _("Actual"), "color": "hsl(160 84% 39%)"}]),
         _w("items", _("Top products"), "barlist", _pairs(items, other=False), _("Produced quantity")),
         _w("waste", _("Waste by month"), "combo", [{"month": r["month"], "waste": r["waste"], "pct": r["waste_pct"]} for r in m],
-           _("Quantity, with waste as % of output + waste"), span=2, dualAxis=True,
-           series=[{"key": "waste", "label": _("Waste"), "color": "hsl(351 95% 59%)"},
+           _("Quantity{0}, with waste as % of output + waste").format(uom), span=2, dualAxis=True,
+           series=[{"key": "waste", "label": _("Waste") + uom, "color": "hsl(351 95% 59%)"},
                    {"key": "pct", "label": _("Waste %"), "type": "line", "axis": "right", "color": "hsl(262 83% 58%)"}]),
         _w("reasons", _("Downtime by reason"), "pie", _pairs(dt_reason, limit=6), _("Hours")),
         _w("ops", _("OPS: target vs actual"), "line", [{"month": r["month"], "target": r["tops"], "actual": r["ops"]} for r in m],
@@ -753,7 +827,8 @@ def _assets(ctx):
 
 
 # ----------------------------------------------------------------------------- financial statements
-COST_OF_SALES = ("cost of sale", "direct expense")
+# Level-2 expense groups that are cost of sales. Word-bounded, so "Indirect Expenses" is not caught by "direct expense".
+COST_OF_SALES = re.compile(r"\b(cost of sales?|cost of goods|direct expenses?|manufacturing)\b", re.I)
 
 
 def _account_groups(ctx):
@@ -806,7 +881,7 @@ def _financials(ctx):
         if rt in ("Income", "Expense") and r.m in months and not r.pcv:
             amt = -bal if rt == "Income" else bal
             low = grp.lower()
-            bucket = "income" if rt == "Income" else ("cogs" if any(c in low for c in COST_OF_SALES) else "opex")
+            bucket = "income" if rt == "Income" else ("cogs" if COST_OF_SALES.search(low) else "opex")
             months[r.m][bucket] += amt
             lines[(bucket, grp)] = lines.get((bucket, grp), 0) + amt
     if abs(unclosed) > 0.5:
@@ -1428,7 +1503,7 @@ def _do_analysis(ctx):
     widgets = [
         _w("trend", _("Deliveries by month"), "combo", [{k: r[k] for k in ("month", "value", "deliveries")} for r in monthly],
            _("Value delivered (bars) and number of delivery notes (line)"), money=True, span=2, dualAxis=True,
-           series=[{"key": "value", "label": _("Value")}, {"key": "deliveries", "label": _("Deliveries"), "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
+           series=[{"key": "value", "label": _("Value")}, {"key": "deliveries", "label": _("Deliveries"), "format": "number", "type": "line", "axis": "right", "color": "hsl(35 92% 50%)"}]),
         _w("wh", _("Delivered from"), "donut", _pairs([{"label": k, "v": v} for k, v in wh.items()], limit=6), _("Value by warehouse"), money=True),
         _w("ontime", _("Delivery timeliness"), "line", [{"month": r["month"], "ontime": r["ontime"]} for r in monthly],
            _("% of lines delivered by the promised date"), percent=True, span=2, series=[{"key": "ontime", "label": _("On time %"), "color": "hsl(160 84% 39%)"}]),
@@ -1568,7 +1643,7 @@ def _export_analysis(ctx):
         _w("country_bar", _("Destinations: value & transit"), "combo",
            [{"country": k, "v": round(v["v"], 2), "transit": avg(v["transit"])} for k, v in cc], _("Order value (bars) and average transit days (line)"),
            xKey="country", money=True, span=2, dualAxis=True,
-           series=[{"key": "v", "label": _("Export value")}, {"key": "transit", "label": _("Transit days"), "type": "line", "axis": "right", "color": "hsl(351 95% 59%)"}]),
+           series=[{"key": "v", "label": _("Export value")}, {"key": "transit", "label": _("Transit days"), "format": "number", "type": "line", "axis": "right", "color": "hsl(351 95% 59%)"}]),
         _w("funnel", _("Export order pipeline"), "bar", [{"stage": s_, "n": stage.get(s_, 0), "color": palette[i]} for i, s_ in enumerate(EXPORT_STAGES)],
            _("Orders by export status"), xKey="stage", colorKey="color", angledLabels=True, series=[{"key": "n", "label": _("Orders")}]),
         _w("buyers", _("Top export buyers"), "barlist", _pairs([{"label": k, "v": v} for k, v in by_cust.items()], limit=8, other=False), money=True),

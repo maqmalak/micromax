@@ -298,6 +298,70 @@ def _build_custom_fields():
         ("Workstation", {"fieldname": "spindles", "label": "Spindles", "fieldtype": "Int", "insert_after": "column_break_3", "non_negative": 1, "reqd": 1}),
     ):
         data.setdefault(dt, []).append(field)
+    # ---------------------------------------------------------- Spinning BOM / blend / machine fields
+    # Blend ratio, yield, waste, OPS and spindle fields on BOM, BOM Item, Work Order Item, Stock Entry and
+    # Workstation that micromax.mfg_logic reads and writes. Like the Work Order block above they used to exist
+    # only as site-level Custom Fields (from the old hik apps), so a fresh site could not hold a Spinning BOM.
+    for dt, field in (
+        ("BOM", {"fieldname": "sales_order", "label": "Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "project", "read_only": 1}),
+        ("BOM", {"fieldname": "bom_type", "label": "BOM Type", "fieldtype": "Select", "options": "Spinning\nWeaving\nDyeing\nCutting\nStitching\nPacking", "insert_after": "quantity", "default": "Spinning"}),
+        ("BOM", {"fieldname": "main_operation", "label": "Main Operation", "fieldtype": "Link", "options": "Operation", "insert_after": "operations_section"}),
+        ("BOM", {"fieldname": "section_break_34", "fieldtype": "Section Break", "insert_after": "scrap_items"}),
+        ("BOM", {"fieldname": "invisible_lost_percentage", "label": "Invisible Lost Percentage", "fieldtype": "Percent", "insert_after": "section_break_34"}),
+        ("BOM", {"fieldname": "material_required", "label": "Material Required", "fieldtype": "Float", "insert_after": "invisible_lost_percentage", "read_only": 1}),
+        ("BOM", {"fieldname": "material_issued", "label": "Material Issued", "fieldtype": "Float", "insert_after": "material_required", "read_only": 1}),
+        ("BOM", {"fieldname": "target_yield", "label": "Target Yield", "fieldtype": "Percent", "insert_after": "material_issued", "read_only": 1}),
+        ("BOM", {"fieldname": "target_waste", "label": "Target Waste", "fieldtype": "Float", "insert_after": "target_yield", "read_only": 1}),
+        ("BOM", {"fieldname": "target_waste_percentage", "label": "Target Waste Percentage", "fieldtype": "Percent", "insert_after": "target_waste", "read_only": 1}),
+        ("BOM", {"fieldname": "column_break_39", "fieldtype": "Column Break", "insert_after": "target_waste_percentage"}),
+        ("BOM", {"fieldname": "invisible_lose_qty", "label": "Invisible Lose Qty", "fieldtype": "Float", "insert_after": "column_break_39", "non_negative": 1}),
+        ("BOM", {"fieldname": "target_ops", "label": "Target OPS", "fieldtype": "Float", "insert_after": "invisible_lose_qty"}),
+        ("BOM", {"fieldname": "spindle_required", "label": "Spindle Required", "fieldtype": "Float", "insert_after": "target_ops", "read_only": 1, "precision": "9"}),
+        ("BOM", {"fieldname": "frame_required", "label": "Frame Required", "fieldtype": "Float", "insert_after": "spindle_required", "read_only": 1, "precision": "9"}),
+        ("BOM", {"fieldname": "per_shift_frame_required", "label": "Per Shift Frame Required", "fieldtype": "Float", "insert_after": "frame_required", "read_only": 1, "precision": "9"}),
+        ("BOM", {"fieldname": "invisible_lose_percentage", "label": "Invisible Lose Percentage", "fieldtype": "Percent", "insert_after": "per_shift_frame_required", "depends_on": "eval:doc.bom_type == 'Spinning';"}),
+        ("BOM Item", {"fieldname": "blend_ratio", "label": "Blend Ratio", "fieldtype": "Percent", "insert_after": "allow_alternative_item", "in_list_view": 1, "reqd": 1}),
+        ("BOM Item", {"fieldname": "item_yield", "label": "Yield", "fieldtype": "Percent", "insert_after": "qty", "in_list_view": 1}),
+        ("BOM Item", {"fieldname": "gross_up_qty", "label": "G/U QTY", "fieldtype": "Float", "insert_after": "item_yield", "read_only": 1, "in_list_view": 1}),
+        ("Work Order Item", {"fieldname": "blend_ratio", "label": "Blend Ratio", "fieldtype": "Percent", "insert_after": "qty_section", "read_only": 1, "in_list_view": 1}),
+        ("Work Order Item", {"fieldname": "material_required", "label": "Material Required", "fieldtype": "Float", "insert_after": "blend_ratio", "read_only": 1}),
+        ("Work Order Item", {"fieldname": "item_yield", "label": "Item Yield", "fieldtype": "Percent", "insert_after": "material_required", "read_only": 1}),
+        ("Work Order Item", {"fieldname": "waste", "label": "Waste", "fieldtype": "Float", "insert_after": "available_qty_at_wip_warehouse", "read_only": 1, "precision": "9", "allow_on_submit": 1}),
+        ("Work Order Item", {"fieldname": "waste_percentage", "label": "Waste Percentage", "fieldtype": "Percent", "insert_after": "waste", "read_only": 1, "precision": "9", "allow_on_submit": 1}),
+        ("Workstation", {"fieldname": "operation", "label": "Operation", "fieldtype": "Link", "options": "Operation", "insert_after": "column_break_3"}),
+        ("Workstation", {"fieldname": "out_of_order", "label": "Out Of Order", "fieldtype": "Int", "insert_after": "spindles", "non_negative": 1, "reqd": 1}),
+        ("Workstation", {"fieldname": "capacity_per_day", "label": "Capacity Per Day", "fieldtype": "Int", "insert_after": "out_of_order", "read_only": 1, "non_negative": 1, "reqd": 1}),
+        ("Workstation", {"fieldname": "spinning_section", "label": "Spinning", "fieldtype": "Section Break", "insert_after": "capacity_per_day", "depends_on": "eval:doc.workstation_type == 'Spinning';"}),
+        ("Workstation", {"fieldname": "column_break_8", "fieldtype": "Column Break", "insert_after": "out_of_order"}),
+        ("Workstation", {"fieldname": "shifts_per_day", "label": "Shifts Per Day", "fieldtype": "Int", "insert_after": "column_break_8"}),
+        ("Workstation", {"fieldname": "other_details", "label": "Other Details", "fieldtype": "Tab Break", "insert_after": "working_hours"}),
+        ("Workstation", {"fieldname": "operator", "label": "Operator", "fieldtype": "Link", "options": "Employee", "insert_after": "other_details"}),
+        ("Workstation", {"fieldname": "column_break_aihn4", "fieldtype": "Column Break", "insert_after": "operator"}),
+        ("Workstation", {"fieldname": "assistant", "label": "Assistant", "fieldtype": "Link", "options": "Employee", "insert_after": "column_break_aihn4"}),
+        ("Operation", {"fieldname": "capacity", "label": "Capacity", "fieldtype": "Float", "insert_after": "workstation", "read_only": 1}),
+        ("Operation", {"fieldname": "operation_type", "label": "Operation Type", "fieldtype": "Select", "options": "Spinning\nWeaving\nDying\nCutting\nStitching\nPacking", "insert_after": "capacity"}),
+        ("Production Plan Item", {"fieldname": "item_name", "label": "Item Name", "fieldtype": "Data", "insert_after": "item_code", "read_only": 1, "fetch_from": "item_code.item_name", "in_list_view": 1}),
+        ("Production Plan Item", {"fieldname": "section_break_14", "fieldtype": "Section Break", "insert_after": "produced_qty"}),
+        ("Production Plan Item", {"fieldname": "ops", "label": "OPS", "fieldtype": "Float", "insert_after": "section_break_14", "read_only": 1, "fetch_from": "bom_no.target_ops"}),
+        ("Production Plan Item", {"fieldname": "spindle_required", "label": "Spindle Required", "fieldtype": "Float", "insert_after": "ops", "read_only": 1, "non_negative": 1}),
+        ("Production Plan Item", {"fieldname": "frame_required", "label": "Frame Required", "fieldtype": "Float", "insert_after": "spindle_required", "read_only": 1, "non_negative": 1}),
+        ("Production Plan Item", {"fieldname": "column_break_18", "fieldtype": "Column Break", "insert_after": "frame_required"}),
+        ("Production Plan Item", {"fieldname": "frame_allocated_per_day", "label": "Frame Allocated Per Day", "fieldtype": "Float", "insert_after": "column_break_18", "non_negative": 1}),
+        ("Production Plan Item", {"fieldname": "total_days_required", "label": "Total Days Required", "fieldtype": "Data", "insert_after": "frame_allocated_per_day", "read_only": 1}),
+        ("Stock Entry", {"fieldname": "stopage_in_minutes", "label": "Stopage In Minutes", "fieldtype": "Int", "insert_after": "work_order", "read_only": 1, "depends_on": "eval:doc.purpose == 'Manufacture';"}),
+        ("Stock Entry", {"fieldname": "frame_stopage", "label": "Frame Stopage", "fieldtype": "Int", "insert_after": "stopage_in_minutes", "read_only": 1, "depends_on": "eval:doc.purpose == 'Manufacture';"}),
+        ("Stock Entry", {"fieldname": "strips", "label": "Strips", "fieldtype": "Float", "insert_after": "purchase_receipt_no", "depends_on": "eval:doc.stock_entry_type == 'Conversion Production';"}),
+        ("Stock Entry", {"fieldname": "section_break_46", "fieldtype": "Section Break", "insert_after": "value_difference"}),
+        ("Stock Entry", {"fieldname": "total_input_qty", "label": "Total Input Qty", "fieldtype": "Float", "insert_after": "section_break_46", "read_only": 1}),
+        ("Stock Entry", {"fieldname": "process_loss", "label": "Process Loss", "fieldtype": "Float", "insert_after": "total_input_qty", "read_only": 1}),
+        ("Stock Entry", {"fieldname": "column_break_49", "fieldtype": "Column Break", "insert_after": "process_loss"}),
+        ("Stock Entry", {"fieldname": "total_output_qty", "label": "Total Output Qty", "fieldtype": "Float", "insert_after": "column_break_49", "read_only": 1}),
+        ("Stock Entry", {"fieldname": "process_loss_section", "label": "Process Loss Section", "fieldtype": "Section Break", "insert_after": "total_output_qty"}),
+        ("Stock Entry Detail", {"fieldname": "waste", "label": "Waste", "fieldtype": "Float", "insert_after": "job_card_item", "read_only": 1, "precision": "9"}),
+        ("Stock Entry Detail", {"fieldname": "waste_percentage", "label": "Waste Percentage", "fieldtype": "Percent", "insert_after": "waste", "read_only": 1, "precision": "9"}),
+        ("Sales Order Item", {"fieldname": "bags", "label": "Bags", "fieldtype": "Float", "insert_after": "qty", "in_list_view": 1, "non_negative": 1, "reqd": 1}),
+    ):
+        data.setdefault(dt, []).append(field)
 
     return data
 
@@ -398,9 +462,22 @@ def _drop_fields_that_now_exist_natively(data):
     return data
 
 
+def _adopt_orphaned_custom_fields(data):
+    """Custom Fields carried over from the old hik apps can still name their module (e.g. "Lucrum Payroll"),
+    which no longer exists as a Module Def. Updating such a record fails link validation ("Could not find
+    Module (for export)"), so hand any we are about to update to MicroMax first."""
+    for dt, fields in data.items():
+        for field in fields:
+            name = f"{dt}-{field['fieldname']}"
+            module = frappe.db.get_value("Custom Field", name, "module")
+            if module and not frappe.db.exists("Module Def", module):
+                frappe.db.set_value("Custom Field", name, "module", "MicroMax", update_modified=False)
+
+
 def make_custom_fields():
     data = _drop_fields_that_now_exist_natively(_build_custom_fields())
     if frappe.db.table_exists("Custom Field") and data:
+        _adopt_orphaned_custom_fields(data)
         create_custom_fields(data, ignore_validate=True)
 
 # ==================================================================== #
