@@ -1156,9 +1156,12 @@ def _run_and_finish(ctx, wo_name):
         dt_from = get_datetime(f"{day} {rnd.randint(7, 20):02d}:00:00")
         de = frappe.get_doc({"doctype": "Downtime Entry", "workstation": ring, "from_time": dt_from,
                              "to_time": frappe.utils.add_to_date(dt_from, minutes=stop),
-                             "stop_reason": reason, "remarks": DEMO_TAG})
+                             "stop_reason": reason, "remarks": DEMO_TAG,
+                             # the ring-frame operator on shift (mandatory on some sites)
+                             "operator": demo_modules.operator_for(ctx, "Ring Spinning", day)})
         if de.meta.has_field("work_order"):
             de.work_order = wo_name
+        _fill(ctx, de)
         de.flags.ignore_permissions = True
         de.insert()
         ctx.bump("Downtime Entry")
@@ -1400,9 +1403,10 @@ def restore_downtime(company=None, template="spinning_mill"):
         month = getdate(w.d).month
         reason = t.downtime_reasons[0] if month in t.load_shedding and rnd.random() < 0.7 else rnd.choice(t.downtime_reasons)
         start = get_datetime(f"{w.d} {rnd.randint(7, 20):02d}:00:00")
+        operator = frappe.db.get_value("Employee", {"company": company, "status": "Active"}, "name")
         frappe.get_doc({"doctype": "Downtime Entry", "workstation": ring, "work_order": w.name, "from_time": start,
                         "to_time": frappe.utils.add_to_date(start, minutes=w.stop), "stop_reason": reason,
-                        "remarks": DEMO_TAG}).insert(ignore_permissions=True)
+                        "operator": operator, "remarks": DEMO_TAG}).insert(ignore_permissions=True)
         made += 1
     frappe.db.commit()
     print(f"Downtime entries restored: {made}")

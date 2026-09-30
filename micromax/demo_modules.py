@@ -50,6 +50,7 @@ def _setup():
 # ============================================================================ masters
 def masters(ctx):
     t = ctx.t
+    _resolve_countries(ctx)
     if t.get("export"):
         _export_masters(ctx)
     if t.get("import"):
@@ -65,6 +66,34 @@ def masters(ctx):
 
 
 # ============================================================================ export
+# Country names differ between Frappe versions (e.g. "Turkey" became "Türkiye"): try the known spellings.
+_COUNTRY_ALIASES = {
+    "Turkey": ["Türkiye", "Turkiye", "Republic of Türkiye"],
+    "Türkiye": ["Turkey", "Turkiye"],
+    "Korea, Republic of": ["South Korea", "Republic of Korea", "Korea"],
+    "United States": ["United States of America", "USA"],
+    "United Kingdom": ["United Kingdom of Great Britain and Northern Ireland", "UK"],
+    "China": ["People's Republic of China"],
+    "Bangladesh": ["People's Republic of Bangladesh"],
+}
+
+
+def _country(name):
+    """The site's own record for a template country name, or None (the field is then left empty)."""
+    if not name or frappe.db.exists("Country", name):
+        return name
+    for alt in _COUNTRY_ALIASES.get(name, []):
+        if frappe.db.exists("Country", alt):
+            return alt
+    return frappe.db.get_value("Country", {"name": ["like", f"{name.split(',')[0].strip()}%"]}, "name")
+
+
+def _resolve_countries(ctx):
+    for section, key in (("export", "customers"), ("import", "suppliers")):
+        for row in (ctx.t.get(section) or {}).get(key, []):
+            row["country"] = _country(row.get("country"))
+
+
 def _export_masters(ctx):
     ex = ctx.t.export
     parent_cg = frappe.db.get_value("Customer Group", {"is_group": 1}, "name")
