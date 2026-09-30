@@ -458,8 +458,25 @@ def _ensure_fiscal_years(from_date, to_date, company):
                 end = getdate(f"{start.year + 1}-06-30")
                 frappe.get_doc({"doctype": "Fiscal Year", "year": f"{start.year}-{end.year}", "year_start_date": start,
                                 "year_end_date": end}).insert(ignore_permissions=True)
-            frappe.cache.delete_value("fiscal_years")
+            _forget_fiscal_years()
         d = add_days(d, 28)
+    # Re-check with a clean cache: ERPNext keeps the per-company year list in Redis *and* in this process's memory, so a
+    # stale copy would make HRMS / stock postings fail later on a year that was just enabled.
+    _forget_fiscal_years()
+    d = from_date
+    while d <= to_date:
+        get_fiscal_year(d, company=company)       # raises a clear FiscalYearError now, not halfway through the run
+        d = add_days(d, 28)
+
+
+def _forget_fiscal_years():
+    frappe.db.commit()
+    frappe.cache.delete_value("fiscal_years")
+    local = getattr(frappe.local, "cache", None)
+    if isinstance(local, dict):
+        for k in [k for k in local if "fiscal_years" in str(k)]:
+            local.pop(k, None)
+    frappe.clear_cache()
 
 
 def _tune_manufacturing_settings():
