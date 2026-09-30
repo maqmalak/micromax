@@ -567,7 +567,19 @@ def _site_default(ctx, doc, df):
         return _default_link(ctx, df.options, doc)
     if df.fieldtype == "Select":
         opts = [o for o in (df.options or "").split("\n") if o]
-        return opts[0] if opts else None
+        # a flag-like select ("Yes/No", "out of order"...) must not default to its alarming option
+        safe = next((o for o in opts if o.lower() in ("no", "none", "normal", "active", "working", "available")), None)
+        return safe or (opts[0] if opts else None)
+    if df.fieldtype == "Check":
+        return 0
+    if df.fieldtype in ("Int", "Float", "Currency", "Percent"):
+        if "capacity" in df.fieldname:              # e.g. Workstation.capacity_per_day on some sites
+            return 1000
+        return 0
+    if df.fieldtype == "Datetime":
+        return get_datetime(f"{ctx._current_day or nowdate()} 09:00:00")
+    if df.fieldtype == "Time":
+        return "09:00:00"
     if df.fieldtype in ("Data", "Small Text", "Text", "Read Only"):
         if df.fieldname == "department_name" and doc.get("department"):
             return frappe.db.get_value("Department", doc.department, "department_name")
