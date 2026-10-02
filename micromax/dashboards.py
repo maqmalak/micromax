@@ -48,10 +48,31 @@ MODULES = {
 
 CACHE_SECONDS = 15 * 60
 
+# Which dashboard filters each module honours (the UI shows only these; others are ignored).
+MODULE_FILTERS = {
+    "accounts": ("cost_center", "account", "account_group", "account_type", "customer", "supplier"),
+    "financials": ("cost_center", "account", "account_group", "account_type", "customer", "supplier"),
+    "sales": ("cost_center", "customer", "item_group", "item"), "so_analysis": ("cost_center", "customer", "item_group", "item"),
+    "do_analysis": ("cost_center", "customer", "item_group", "item"), "export_analysis": ("customer", "item_group", "item"),
+    "purchase": ("cost_center", "supplier", "item_group", "item"), "procurement": ("cost_center", "supplier", "item_group", "item"),
+    "import_analysis": ("supplier", "item_group", "item"), "stock": ("item_group", "item"),
+    "production": ("stream", "wo_status"), "wo_analysis": ("stream", "wo_status"), "jc_analysis": ("stream", "wo_status"),
+    "quality": ("item",), "hr": ("department",), "payroll": ("department",), "assets": ("asset_category",),
+}
+
+
+@frappe.whitelist()
+def get_dashboard_filters() -> dict:
+    return {k: list(v) for k, v in MODULE_FILTERS.items()}
+
 
 @frappe.whitelist()
 def get_dashboard(module: str, from_date: str, to_date: str, company: str | None = None, refresh: int | None = None,
-                  tolerance: float | None = None) -> dict:
+                  tolerance: float | None = None, cost_center: str | None = None, customer: str | None = None,
+                  supplier: str | None = None, item: str | None = None, item_group: str | None = None,
+                  department: str | None = None, asset_category: str | None = None, account: str | None = None,
+                  account_group: str | None = None, account_type: str | None = None, stream: str | None = None,
+                  wo_status: str | None = None) -> dict:
     if module not in MODULES:
         frappe.throw(_("Unknown dashboard {0}").format(module))
     doctype, fn = MODULES[module]
@@ -62,12 +83,16 @@ def get_dashboard(module: str, from_date: str, to_date: str, company: str | None
         frappe.throw(_("From date must be before To date"))
     # GL / attendance aggregates take seconds on this data volume, so results are cached briefly per period
     tol = flt(tolerance) if tolerance not in (None, "") else 5.0
-    key = f"micromax-dashboard:{module}:{f}:{t}:{company or ''}:{tol}"
+    dims = _dims(cost_center=cost_center, customer=customer, supplier=supplier, item=item, item_group=item_group,
+                 department=department, asset_category=asset_category, account=account, account_group=account_group,
+                 account_type=account_type, stream=stream, wo_status=wo_status)
+    dims = {k: v for k, v in dims.items() if k in MODULE_FILTERS.get(module, ())}
+    key = f"micromax-dashboard:{module}:{f}:{t}:{company or ''}:{tol}:{_dims_key(dims)}"
     if not frappe.utils.cint(refresh):
         cached = frappe.cache.get_value(key)
         if cached:
             return cached
-    ctx = _Ctx(f, t, company or None)
+    ctx = _Ctx(f, t, company or None, dims)
     ctx.tolerance = tol
     kpis, widgets = globals()[fn](ctx)
     try:
@@ -76,30 +101,204 @@ def get_dashboard(module: str, from_date: str, to_date: str, company: str | None
         frappe.log_error(title=f"Dashboard insights failed: {module}")
         insights = []
     out = {"period": {"from": str(f), "to": str(t), "months": [lbl for _k, lbl in ctx.months]}, "kpis": kpis, "widgets": widgets,
-           "insights": insights, "generated_at": str(frappe.utils.now_datetime())}
+           "insights": insights, "generated_at": str(frappe.utils.now_datetime()),
+           "filters": {"applied": dims, "used": sorted(ctx.dims_used)}}
     frappe.cache.set_value(key, out, expires_in_sec=CACHE_SECONDS)
     return out
 
 
 # ----------------------------------------------------------------------------- helpers
+def _dims(**kw) -> dict:
+    """Dashboard filters that are set (cost centre, customer, supplier, item)."""
+    return {k: v for k, v in kw.items() if v not in (None, "")}
+
+
+def _dims_key(dims: dict) -> str:
+    return "|".join(f"{k}={dims[k]}" for k in sorted(dims))
+
+
+# Item rows per document type, for "documents that include the item".
+_ITEM_CHILD = {"Sales Invoice": "Sales Invoice Item", "Sales Order": "Sales Order Item", "Delivery Note": "Delivery Note Item",
+               "Purchase Invoice": "Purchase Invoice Item", "Purchase Order": "Purchase Order Item",
+               "Purchase Receipt": "Purchase Receipt Item", "Material Request": "Material Request Item",
+               "Stock Entry": "Stock Entry Detail", "Quotation": "Quotation Item", "Import Cost Sheet": "Import Cost Sheet Item",
+               "LC Proforma": "LC Proforma Item"}
+_ITEM_COL = {"Import Cost Sheet Item": "item", "LC Proforma Item": "item"}
+_TABLE_RE = re.compile(r"`tab([^`]+)`(?:\s+(?:as\s+)?(?!where\b|join\b|left\b|inner\b|on\b|group\b|order\b|limit\b)(\w+))?", re.I)
+
+
 class _Ctx:
-    def __init__(self, f: date, t: date, company: str | None):
+    def __init__(self, f: date, t: date, company: str | None, dims: dict | None = None):
         self.f, self.t, self.company = f, t, company
         self.months = []
         d = date(f.year, f.month, 1)
         while d <= t:
             self.months.append((d.strftime("%Y-%m"), d.strftime("%b %y")))
             d = getdate(add_months(d, 1))
-        self.p = {"f": f, "t": t, "co": company}
+        self.dims = dims or {}
+        self.dims_used = set()
+        self.p = {"f": f, "t": t, "co": company, **{f"dim_{k}": v for k, v in self.dims.items()}}
+        # tree filters include their sub-nodes (nested set)
+        for dim, dt, pre in (("cost_center", "Cost Center", "cc"), ("item_group", "Item Group", "ig"), ("department", "Department", "dep"),
+                             ("account", "Account", "acc"), ("account_group", "Account", "accg")):
+            if self.dims.get(dim):
+                lft, rgt = frappe.db.get_value(dt, self.dims[dim], ["lft", "rgt"]) or (0, 0)
+                self.p.update({f"dim_{pre}_lft": lft, f"dim_{pre}_rgt": rgt})
 
     def co(self, alias: str = "") -> str:
-        """`and <alias>.company = %(co)s` when a company is selected."""
-        if not self.company:
-            return ""
-        return f" and {alias + '.' if alias else ''}company = %(co)s"
+        """`and <alias>.company = %(co)s` when a company is selected — plus a marker that `sql()` turns into the
+        dashboard filters (cost centre / customer / supplier / item) the aliased table supports."""
+        cond = f" and {alias + '.' if alias else ''}company = %(co)s" if self.company else ""
+        return cond + (f" /*mmdim:{alias}*/" if self.dims else "")
 
     def sql(self, q: str, extra: dict | None = None):
+        if self.dims and "/*mmdim:" in q:
+            q = self._apply_dims(q)
         return frappe.db.sql(q, {**self.p, **(extra or {})}, as_dict=True)
+
+    def _apply_dims(self, q: str) -> str:
+        tables = {}
+        for m in _TABLE_RE.finditer(q):
+            if m.group(2):
+                tables.setdefault(m.group(2), m.group(1))
+        from_re = re.compile(r"\bfrom\s+`tab([^`]+)`(?:\s+(?:as\s+)?(?!where\b|join\b|left\b|inner\b|on\b|group\b|order\b|limit\b)(\w+))?", re.I)
+
+        def repl(m):
+            alias = m.group(1)
+            if alias:
+                return self._dim_cond(alias, tables.get(alias), tables)
+            # un-aliased co(): the table of the nearest FROM before it (its alias, if it has one)
+            last = None
+            for fm in from_re.finditer(q, 0, m.start()):
+                last = fm
+            if not last:
+                return ""
+            return self._dim_cond(last.group(2) or f"`tab{last.group(1)}`", last.group(1), tables)
+
+        return re.sub(r"/\*mmdim:(\w*)\*/", repl, q)
+
+    def _dim_cond(self, alias: str, doctype: str | None, tables: dict | None = None) -> str:
+        if not doctype:
+            return ""
+        a = f"{alias}."
+        cols = set(frappe.db.get_table_columns(doctype))
+        child = _ITEM_CHILD.get(doctype)
+        child_cols = set(frappe.db.get_table_columns(child)) if child else set()
+        # the query's own alias for this document's item rows, when it joins them (e.g. "Top products")
+        child_alias = next((al for al, dt in (tables or {}).items() if dt == child), None)
+        out = []
+        for dim in ("customer", "supplier"):
+            if not self.dims.get(dim):
+                continue
+            label = dim.capitalize()
+            if dim in cols:
+                out.append(f"{a}{dim} = %(dim_{dim})s")
+            elif doctype == "GL Entry":
+                # the ledger for a party = every voucher posted against that party (its invoices' revenue, tax, stock...)
+                # ... plus its delivery notes / receipts, which carry the cost of goods but no party line
+                stock_doc = "Delivery Note" if dim == "customer" else "Purchase Receipt"
+                out.append(f"""({a}voucher_no in (select pg.voucher_no from `tabGL Entry` pg where pg.party_type = '{label}'
+                    and pg.party = %(dim_{dim})s and pg.is_cancelled = 0)
+                    or {a}voucher_no in (select sd.name from `tab{stock_doc}` sd where sd.{dim} = %(dim_{dim})s and sd.docstatus = 1))""")
+            elif {"party_type", "party"} <= cols:
+                out.append(f"({a}party_type = '{label}' and {a}party = %(dim_{dim})s)")
+            else:
+                continue
+            self.dims_used.add(dim)
+        if self.dims.get("cost_center"):
+            sub = "select name from `tabCost Center` where lft >= %(dim_cc_lft)s and rgt <= %(dim_cc_rgt)s"
+            conds = []
+            if "cost_center" in cols:
+                conds.append(f"{a}cost_center in ({sub})")
+            if child_alias and "cost_center" in child_cols:
+                conds.append(f"{child_alias}.cost_center in ({sub})")
+            elif child and "cost_center" in child_cols:
+                conds.append(f"exists (select 1 from `tab{child}` dc where dc.parent = {a}name and dc.cost_center in ({sub}))")
+            if not conds and "payroll_cost_centers" in {df.fieldname for df in frappe.get_meta(doctype).get_table_fields()}:
+                conds.append(f"exists (select 1 from `tabEmployee Cost Center` dc where dc.parent = {a}name and dc.cost_center in ({sub}))")
+            if not conds and doctype in ("Salary Slip", "Employee", "Attendance", "Leave Application"):
+                # people are costed through their salary structure assignment's payroll cost centres
+                conds.append(f"""{a}employee in (select ssa.employee from `tabSalary Structure Assignment` ssa
+                    join `tabEmployee Cost Center` dc on dc.parent = ssa.name where ssa.docstatus = 1 and dc.cost_center in ({sub}))"""
+                             if doctype != "Employee" else
+                             f"""{a}name in (select ssa.employee from `tabSalary Structure Assignment` ssa
+                    join `tabEmployee Cost Center` dc on dc.parent = ssa.name where ssa.docstatus = 1 and dc.cost_center in ({sub}))""")
+            if conds:
+                out.append("(" + " or ".join(conds) + ")")
+                self.dims_used.add("cost_center")
+        if self.dims.get("item"):
+            col = _ITEM_COL.get(child, "item_code") if child else "item_code"
+            if "item_code" in cols:
+                out.append(f"{a}item_code = %(dim_item)s")
+            elif "production_item" in cols:
+                out.append(f"{a}production_item = %(dim_item)s")
+            elif child_alias:
+                out.append(f"{child_alias}.{col} = %(dim_item)s")
+            elif child:
+                out.append(f"exists (select 1 from `tab{child}` di where di.parent = {a}name and di.{col} = %(dim_item)s)")
+            if any("dim_item" in c for c in out):
+                self.dims_used.add("item")
+        if self.dims.get("item_group"):
+            groups = "select name from `tabItem Group` where lft >= %(dim_ig_lft)s and rgt <= %(dim_ig_rgt)s"
+            items = f"select name from `tabItem` where item_group in ({groups})"
+            col = _ITEM_COL.get(child, "item_code") if child else "item_code"
+            cond = None
+            if "item_group" in cols:
+                cond = f"{a}item_group in ({groups})"
+            elif "item_code" in cols:
+                cond = f"{a}item_code in ({items})"
+            elif "production_item" in cols:
+                cond = f"{a}production_item in ({items})"
+            elif child_alias:
+                cond = f"{child_alias}.{col} in ({items})"
+            elif child:
+                cond = f"exists (select 1 from `tab{child}` dg where dg.parent = {a}name and dg.{col} in ({items}))"
+            if cond:
+                out.append(cond)
+                self.dims_used.add("item_group")
+        if self.dims.get("department"):
+            deps = "select name from `tabDepartment` where lft >= %(dim_dep_lft)s and rgt <= %(dim_dep_rgt)s"
+            if "department" in cols:
+                out.append(f"{a}department in ({deps})")
+                self.dims_used.add("department")
+            elif "employee" in cols:
+                out.append(f"{a}employee in (select name from `tabEmployee` where department in ({deps}))")
+                self.dims_used.add("department")
+        # ledger: an account (with everything under it), a group of accounts, or an account type
+        for dim, pre in (("account", "acc"), ("account_group", "accg")):
+            if self.dims.get(dim) and "account" in cols and doctype in ("GL Entry", "Payment Ledger Entry", "Journal Entry Account"):
+                out.append(f"{a}account in (select name from `tabAccount` where lft >= %(dim_{pre}_lft)s and rgt <= %(dim_{pre}_rgt)s)")
+                self.dims_used.add(dim)
+        if self.dims.get("account_type") and "account" in cols and doctype in ("GL Entry", "Payment Ledger Entry", "Journal Entry Account"):
+            out.append(f"{a}account in (select name from `tabAccount` where account_type = %(dim_account_type)s)")
+            self.dims_used.add("account_type")
+        # production: conversion (finished goods into a third-party warehouse) vs own production, and work-order status
+        wo_conds = []
+        if self.dims.get("stream"):
+            conv = "lower(ifnull({0}fg_warehouse, '')) like '%%%%third party%%%%'"
+            wo_conds.append(conv if self.dims["stream"] == "Conversion" else f"not ({conv})")
+        if self.dims.get("wo_status"):
+            wo_conds.append("{0}status = %(dim_wo_status)s")
+        if wo_conds:
+            if doctype == "Work Order":
+                out.extend(c.format(a) for c in wo_conds)
+            elif "work_order" in cols:
+                out.append(f"{a}work_order in (select wf.name from `tabWork Order` wf where "
+                           + " and ".join(c.format("wf.") for c in wo_conds) + ")")
+            if doctype == "Work Order" or "work_order" in cols:
+                self.dims_used.update(k for k in ("stream", "wo_status") if self.dims.get(k))
+        if self.dims.get("asset_category"):
+            if "asset_category" in cols:
+                out.append(f"{a}asset_category = %(dim_asset_category)s")
+            elif "asset" in cols:
+                out.append(f"{a}asset in (select name from `tabAsset` where asset_category = %(dim_asset_category)s)")
+            elif doctype == "Asset Movement":
+                out.append(f"""exists (select 1 from `tabAsset Movement Item` dm join `tabAsset` da on da.name = dm.asset
+                    where dm.parent = {a}name and da.asset_category = %(dim_asset_category)s)""")
+            else:
+                return (" and " + " and ".join(out)) if out else ""
+            self.dims_used.add("asset_category")
+        return (" and " + " and ".join(out)) if out else ""
 
     def monthly(self, rows, key="m", fields=("v",)):
         """Rows keyed by 'YYYY-MM' → one dict per month in the period (zeros filled), labelled 'Jul 26'."""
@@ -1680,7 +1879,7 @@ def _import_analysis(ctx):
             sh.actual_arrival arr, sh.clearance_date clr, sh.shipment_status st, sh.port_of_loading lport, sh.port_of_discharge dport,
             sh.shipping_line line, sh.duty_amount duty, sh.tax_amount tax, ifnull(c.total_purchase_value, 0) pv, ifnull(c.total_landed_cost, 0) lc
         from `tabImport Shipment` sh left join `tabImport Cost Sheet` c on c.name = sh.import_cost_sheet
-        where date(sh.etd) between %(f)s and %(t)s {'and c.company = %(co)s' if ctx.company else ''}""")
+        where date(sh.etd) between %(f)s and %(t)s {ctx.co('c')}""")
     all_fields = CHARGES + ([x for x in ADJUSTABLE if frappe.db.has_column("Import Cost Sheet Item", x[0])])
     charges = {k: 0.0 for k, _l in all_fields}
     if rows:
@@ -3139,7 +3338,11 @@ DRILL = {
 
 
 @frappe.whitelist()
-def get_drilldown(module: str, key: str, from_date: str, to_date: str, company: str | None = None, tolerance: float | None = None) -> dict:
+def get_drilldown(module: str, key: str, from_date: str, to_date: str, company: str | None = None, tolerance: float | None = None,
+                  cost_center: str | None = None, customer: str | None = None, supplier: str | None = None, item: str | None = None,
+                  item_group: str | None = None, department: str | None = None, asset_category: str | None = None,
+                  account: str | None = None, account_group: str | None = None, account_type: str | None = None,
+                  stream: str | None = None, wo_status: str | None = None) -> dict:
     """Rows behind one KPI tile (same period / company / tolerance as the dashboard)."""
     if module not in MODULES:
         frappe.throw(_("Unknown dashboard {0}").format(module))
@@ -3150,11 +3353,15 @@ def get_drilldown(module: str, key: str, from_date: str, to_date: str, company: 
         return {"title": key, "columns": [], "rows": [], "total": 0, "available": False}
     f, t = getdate(from_date), getdate(to_date)
     tol = flt(tolerance) if tolerance not in (None, "") else 5.0
-    cache_key = f"micromax-drill:{module}:{key}:{f}:{t}:{company or ''}:{tol}"
+    dims = _dims(cost_center=cost_center, customer=customer, supplier=supplier, item=item, item_group=item_group,
+                 department=department, asset_category=asset_category, account=account, account_group=account_group,
+                 account_type=account_type, stream=stream, wo_status=wo_status)
+    dims = {k: v for k, v in dims.items() if k in MODULE_FILTERS.get(module, ())}
+    cache_key = f"micromax-drill:{module}:{key}:{f}:{t}:{company or ''}:{tol}:{_dims_key(dims)}"
     cached = frappe.cache.get_value(cache_key)
     if cached:
         return cached
-    ctx = _Ctx(f, t, company or None)
+    ctx = _Ctx(f, t, company or None, dims)
     ctx.tolerance = tol
     title, columns, rows = spec(ctx)
     rows = [dict(r) for r in rows]
