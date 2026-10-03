@@ -609,3 +609,666 @@ def setup_status(company=None):
         st["issue"] = max(0, st["issue"] or 0)
         st["done"] = bool(st["count"]) and not st["issue"]
     return {"headcount": n_active, "steps": steps}
+
+
+# ----------------------------------------------------------------------------- employee profile
+@frappe.whitelist()
+def employee_insights(employee, months=12):
+    """Everything the employee profile's Insights tab shows, in one call: attendance and punctuality by month,
+    a day-by-day heatmap, usual in/out times, leave balances, pay history and latest payslip, current shift and
+    salary structure, a career timeline and how the employee compares with their department."""
+    if not frappe.has_permission("Employee", "read", doc=employee):
+        frappe.throw(_("Not permitted to view this employee"), frappe.PermissionError)
+    from frappe.utils import add_days, add_months, flt, get_first_day
+
+    emp = frappe.db.get_value(
+        "Employee", employee,
+        ["name", "employee_name", "company", "department", "date_of_joining", "relieving_date", "status",
+         "final_confirmation_date", "contract_end_date", "date_of_retirement", "ctc", "salary_currency"],
+        as_dict=True,
+    )
+    if not emp:
+        frappe.throw(_("Employee {0} not found").format(employee))
+    today = getdate()
+    months = max(1, min(cint(months) or 12, 36))
+    start = get_first_day(add_months(today, -(months - 1)))
+    p = {"emp": employee, "f": start, "t": today}
+
+    # ---- attendance by month (+ punctuality + overtime, same rules as the Attendance page)
+    month_rows = frappe.db.sql(
+        f"""select date_format(a.attendance_date, '%%Y-%%m') m, a.status, count(*) n, sum({LATE_SQL}) late,
+            sum({EARLY_OUT_SQL}) early_out, sum({EARLY_IN_SQL}) early_in, sum({OT_SQL}) ot,
+            sum(if({LATE_SQL}, ifnull({LATE_MIN_SQL}, 0), 0)) late_min
+        from `tabAttendance` a {SHIFT_JOIN}
+        where a.docstatus = 1 and a.employee = %(emp)s and a.attendance_date between %(f)s and %(t)s
+        group by m, a.status""",
+        p, as_dict=True,
+    )
+    by_month = {}
+    m = start
+    while m <= today:
+        k = str(m)[:7]
+        by_month[k] = {"month": k, "present": 0, "absent": 0, "on_leave": 0, "half_day": 0, "wfh": 0,
+                       "late": 0, "early_out": 0, "early_in": 0, "ot_hours": 0.0, "late_minutes": 0}
+        m = add_months(m, 1)
+    key = {"Present": "present", "Absent": "absent", "On Leave": "on_leave", "Half Day": "half_day", "Work From Home": "wfh"}
+    for r in month_rows:
+        b = by_month.get(r.m)
+        if not b:
+            continue
+        if key.get(r.status):
+            b[key[r.status]] += r.n
+        b["late"] += int(r.late or 0)
+        b["early_out"] += int(r.early_out or 0)
+        b["early_in"] += int(r.early_in or 0)
+        b["ot_hours"] = round(b["ot_hours"] + flt(r.ot), 2)
+        b["late_minutes"] += int(r.late_min or 0)
+    monthly = list(by_month.values())
+    for b in monthly:
+        marked = b["present"] + b["wfh"] + b["half_day"] + b["absent"] + b["on_leave"]
+        b["marked"] = marked
+        b["rate"] = round((b["present"] + b["wfh"] + b["half_day"] / 2) / marked * 100, 1) if marked else None
+
+    # ---- day-by-day for the heatmap (last ~4 months)
+    heat_from = add_days(today, -119)
+    days = frappe.db.sql(
+        f"""select a.attendance_date d, a.status, {LATE_SQL} late, {EARLY_OUT_SQL} early_out, a.in_time, a.out_time, a.leave_type
+        from `tabAttendance` a {SHIFT_JOIN}
+        where a.docstatus = 1 and a.employee = %(emp)s and a.attendance_date between %(f)s and %(t)s
+        order by a.attendance_date, a.modified desc""",
+        {"emp": employee, "f": heat_from, "t": today}, as_dict=True,
+    )
+    heat = {}
+    for d in days:
+        heat.setdefault(str(d.d), {"date": str(d.d), "status": d.status, "late": int(d.late or 0), "early_out": int(d.early_out or 0),
+                                    "in": str(d.in_time)[11:16] if d.in_time else None, "out": str(d.out_time)[11:16] if d.out_time else None,
+                                    "leave_type": d.leave_type})
+
+    # ---- usual arrival / departure (last 90 days with times)
+    times = frappe.db.sql(
+        """select avg(time_to_sec(time(in_time))) i, avg(time_to_sec(time(out_time))) o, avg(nullif(working_hours, 0)) h, count(in_time) n
+        from `tabAttendance` where docstatus = 1 and employee = %(emp)s and attendance_date between %(f)s and %(t)s""",
+        {"emp": employee, "f": add_days(today, -89), "t": today}, as_dict=True,
+    )[0]
+    hhmm = lambda sec: f"{int(sec // 3600):02d}:{int(sec % 3600 // 60):02d}" if sec is not None else None  # noqa: E731
+
+    # ---- department comparison (this year)
+    year_start = today.replace(month=1, day=1)
+    def rate_for(cond, params):
+        r = frappe.db.sql(
+            f"""select sum(a.status in ('Present', 'Work From Home')) + sum(a.status = 'Half Day') / 2 p, count(*) n, sum({LATE_SQL}) late
+            from `tabAttendance` a {SHIFT_JOIN} where a.docstatus = 1 and a.attendance_date between %(f)s and %(t)s and {cond}""",
+            {**params, "f": year_start, "t": today}, as_dict=True,
+        )[0]
+        return {"rate": round(flt(r.p) / r.n * 100, 1) if r.n else None, "late_per_100": round(flt(r.late) / r.n * 100, 1) if r.n else None, "records": r.n}
+    mine = rate_for("a.employee = %(emp)s", {"emp": employee})
+    dept = rate_for("a.employee in (select name from `tabEmployee` where department = %(dept)s and status = 'Active')", {"dept": emp.department}) if emp.department else None
+
+    # ---- leave balances (HRMS's own calculation) + recent applications
+    balances = []
+    try:
+        from hrms.hr.doctype.leave_application.leave_application import get_leave_details
+        details = get_leave_details(employee, today) or {}
+        for lt, v in (details.get("leave_allocation") or {}).items():
+            balances.append({"leave_type": lt, **v})
+    except Exception:
+        frappe.clear_last_message()
+    leave_apps = frappe.get_all(
+        "Leave Application",
+        filters={"employee": employee, "docstatus": ["<", 2]},
+        fields=["name", "leave_type", "from_date", "to_date", "total_leave_days", "status", "docstatus"],
+        order_by="from_date desc", limit=8,
+    )
+    leave_by_type = frappe.db.sql(
+        """select leave_type, sum(total_leave_days) days from `tabLeave Application`
+        where employee = %(emp)s and docstatus = 1 and status = 'Approved' and from_date >= %(f)s group by leave_type""",
+        {"emp": employee, "f": year_start}, as_dict=True,
+    )
+
+    # ---- pay
+    slips = frappe.get_all(
+        "Salary Slip",
+        filters={"employee": employee, "docstatus": 1},
+        fields=["name", "start_date", "end_date", "gross_pay", "total_deduction", "net_pay", "currency", "payment_days", "total_working_days"],
+        order_by="start_date desc", limit=months * 3,
+    )
+    # One point per payroll month (an employee can have more than one slip in a month, e.g. arrears runs).
+    pay_months = {}
+    for sl in slips:
+        k = str(sl.start_date)[:7]
+        pm = pay_months.setdefault(k, {"month": k, "gross_pay": 0.0, "total_deduction": 0.0, "net_pay": 0.0, "slips": 0, "currency": sl.currency})
+        pm["gross_pay"] += flt(sl.gross_pay)
+        pm["total_deduction"] += flt(sl.total_deduction)
+        pm["net_pay"] += flt(sl.net_pay)
+        pm["slips"] += 1
+    pay_by_month = sorted(pay_months.values(), key=lambda x: x["month"])[-months:]
+    latest = None
+    if slips:
+        doc = frappe.get_doc("Salary Slip", slips[0].name)
+        latest = {
+            "name": doc.name, "start_date": str(doc.start_date), "end_date": str(doc.end_date), "currency": doc.currency,
+            "gross_pay": doc.gross_pay, "total_deduction": doc.total_deduction, "net_pay": doc.net_pay,
+            "payment_days": doc.payment_days, "total_working_days": doc.total_working_days,
+            "earnings": [{"component": d.salary_component, "amount": d.amount} for d in doc.earnings if d.amount],
+            "deductions": [{"component": d.salary_component, "amount": d.amount} for d in doc.deductions if d.amount],
+        }
+    ssa = frappe.get_all(
+        "Salary Structure Assignment",
+        filters={"employee": employee, "docstatus": 1},
+        fields=["name", "salary_structure", "from_date", "base", "variable", "currency", "income_tax_slab"],
+        order_by="from_date desc", limit=10,
+    )
+
+    # ---- shift
+    shift = frappe.db.sql(
+        """select sa.name, sa.shift_type, sa.start_date, sa.end_date, st.start_time, st.end_time, st.late_entry_grace_period,
+            st.enable_late_entry_marking, st.allow_overtime
+        from `tabShift Assignment` sa left join `tabShift Type` st on st.name = sa.shift_type
+        where sa.employee = %(emp)s and sa.docstatus = 1 and sa.status = 'Active' and sa.start_date <= %(d)s
+            and (sa.end_date is null or sa.end_date >= %(d)s)
+        order by sa.start_date desc limit 1""",
+        {"emp": employee, "d": today}, as_dict=True,
+    )
+    last_shift = shift[0] if shift else frappe.db.get_value(
+        "Attendance", {"employee": employee, "docstatus": 1, "shift": ["is", "set"]}, "shift", order_by="attendance_date desc")
+
+    # ---- money owed either way
+    claims = frappe.db.sql(
+        """select sum(if(docstatus = 0, total_claimed_amount, 0)) pending, sum(if(docstatus = 1, total_claimed_amount - ifnull(total_amount_reimbursed, 0), 0)) unpaid
+        from `tabExpense Claim` where employee = %(emp)s and docstatus < 2""", {"emp": employee}, as_dict=True)[0]
+    advances = frappe.db.sql(
+        """select sum(paid_amount - ifnull(claimed_amount, 0) - ifnull(return_amount, 0)) outstanding
+        from `tabEmployee Advance` where employee = %(emp)s and docstatus = 1""", {"emp": employee}, as_dict=True)[0]
+
+    # ---- career timeline
+    timeline = [{"date": str(emp.date_of_joining), "kind": "joined", "title": "Joined", "detail": emp.company}] if emp.date_of_joining else []
+    for r in frappe.get_all("Employee Promotion", filters={"employee": employee, "docstatus": 1}, fields=["name", "promotion_date", "revised_ctc", "current_ctc"]):
+        changes = frappe.get_all("Employee Property History", filters={"parent": r.name, "parenttype": "Employee Promotion"}, fields=["property", "current", "new"])
+        timeline.append({"date": str(r.promotion_date), "kind": "promotion", "title": "Promoted", "ref": r.name,
+                         "detail": "; ".join(f"{c.property}: {c.current or '—'} → {c.new}" for c in changes)})
+    for r in frappe.get_all("Employee Transfer", filters={"employee": employee, "docstatus": 1}, fields=["name", "transfer_date", "new_company"]):
+        changes = frappe.get_all("Employee Property History", filters={"parent": r.name, "parenttype": "Employee Transfer"}, fields=["property", "current", "new"])
+        timeline.append({"date": str(r.transfer_date), "kind": "transfer", "title": "Transferred", "ref": r.name,
+                         "detail": "; ".join(f"{c.property}: {c.current or '—'} → {c.new}" for c in changes) or r.new_company})
+    # Only real pay changes: re-submitting the same structure and base every month isn't a revision.
+    prev = None
+    for r in reversed(ssa):
+        if prev and prev.salary_structure == r.salary_structure and flt(prev.base) == flt(r.base):
+            continue
+        change = ""
+        if prev and flt(prev.base) and flt(r.base) != flt(prev.base):
+            change = f" ({(flt(r.base) - flt(prev.base)) / flt(prev.base) * 100:+.1f}%)"
+        timeline.append({"date": str(r.from_date), "kind": "salary", "title": "Salary structure" if prev is None else "Salary revised",
+                         "ref": r.name, "detail": f"{r.salary_structure} · base {flt(r.base):,.0f} {r.currency or ''}".strip() + change})
+        prev = r
+    for field, kind, title in (("final_confirmation_date", "confirmed", "Confirmed"), ("contract_end_date", "contract", "Contract ends"),
+                               ("relieving_date", "left", "Relieved"), ("date_of_retirement", "retire", "Retirement")):
+        if emp.get(field):
+            timeline.append({"date": str(emp[field]), "kind": kind, "title": title})
+    timeline.sort(key=lambda x: x["date"])
+
+    return {
+        "employee": employee,
+        "from_date": str(start),
+        "to_date": str(today),
+        "monthly": monthly,
+        "heatmap": list(heat.values()),
+        "heatmap_from": str(heat_from),
+        "usual": {"in": hhmm(times.i), "out": hhmm(times.o), "hours": round(flt(times.h), 1) if times.h else None, "days": times.n},
+        "compare": {"employee": mine, "department": dept, "department_name": emp.department},
+        "leave_balances": balances,
+        "leave_applications": leave_apps,
+        "leave_by_type": leave_by_type,
+        "pay_by_month": pay_by_month,
+        "latest_slip": latest,
+        "structures": ssa,
+        "shift": shift[0] if shift else None,
+        "last_shift": last_shift if not shift else None,
+        "claims": {"pending": flt(claims.pending), "unpaid": flt(claims.unpaid), "advance_outstanding": flt(advances.outstanding)},
+        "timeline": timeline,
+    }
+
+
+# ----------------------------------------------------------------------------- salary slips
+def _income_tax_components():
+    """Salary components that are income tax: flagged as the income-tax component, computed from taxable salary,
+    or typed Tax. (The slip's own current_month_income_tax is HRMS's projection, and goes negative once more tax
+    has been deducted than the year's slab total — so tax is read from these deduction lines instead.)"""
+    has_it = frappe.get_meta("Salary Component").has_field("is_income_tax_component")
+    has_ct = frappe.get_meta("Salary Component").has_field("component_type")
+    cond = ["variable_based_on_taxable_salary = 1"]
+    if has_it:
+        cond.append("is_income_tax_component = 1")
+    if has_ct:
+        cond.append("component_type = 'Tax'")
+    return set(frappe.db.sql_list(f"select name from `tabSalary Component` where type = 'Deduction' and ({' or '.join(cond)})"))
+
+
+@frappe.whitelist()
+def salary_slip_insights(name):
+    """The payslip page: the slip with each component's full-month vs paid amount, the attendance behind its
+    payment days, what changed since the previous slip, how it compares with the department, year-to-date
+    totals, income tax and the employee's last 12 months of pay."""
+    doc = frappe.get_doc("Salary Slip", name)
+    doc.check_permission("read")
+    from frappe.utils import add_days, flt
+
+    emp = frappe.db.get_value("Employee", doc.employee, ["image", "designation", "branch", "date_of_joining", "bank_name", "bank_ac_no", "salary_mode"], as_dict=True) or {}
+    tax_components = _income_tax_components()
+    comp_type = lambda rows: [  # noqa: E731
+        {
+            "component": r.salary_component, "abbr": r.abbr, "amount": flt(r.amount), "full_amount": flt(r.default_amount) or flt(r.amount),
+            "additional": flt(r.additional_amount), "ytd": flt(r.year_to_date), "statistical": r.statistical_component,
+            "depends_on_payment_days": r.depends_on_payment_days, "tax_applicable": r.is_tax_applicable,
+            "is_income_tax": int(r.salary_component in tax_components),
+        }
+        for r in rows if flt(r.amount) or flt(r.default_amount)
+    ]
+    earnings, deductions = comp_type(doc.earnings), comp_type(doc.deductions)
+
+    # Previous slip of the same employee → per-component change.
+    prev_name = frappe.db.get_value(
+        "Salary Slip", {"employee": doc.employee, "docstatus": 1, "start_date": ["<", doc.start_date], "name": ["!=", doc.name]},
+        "name", order_by="start_date desc",
+    )
+    previous = None
+    if prev_name:
+        prev = frappe.get_doc("Salary Slip", prev_name)
+        prev_amounts = {("e", r.salary_component): flt(r.amount) for r in prev.earnings}
+        prev_amounts.update({("d", r.salary_component): flt(r.amount) for r in prev.deductions})
+        changes = []
+        for kind, rows in (("e", earnings), ("d", deductions)):
+            seen = set()
+            for r in rows:
+                seen.add(r["component"])
+                before = prev_amounts.get((kind, r["component"]), 0)
+                if round(r["amount"] - before, 2):
+                    changes.append({"component": r["component"], "kind": kind, "before": before, "now": r["amount"]})
+            for (k, c), before in prev_amounts.items():
+                if k == kind and c not in seen and before:
+                    changes.append({"component": c, "kind": kind, "before": before, "now": 0})
+        previous = {"name": prev.name, "start_date": str(prev.start_date), "gross_pay": flt(prev.gross_pay), "net_pay": flt(prev.net_pay),
+                    "total_deduction": flt(prev.total_deduction), "payment_days": flt(prev.payment_days), "changes": changes}
+
+    # The attendance behind the payment days.
+    att = frappe.db.sql(
+        """select status, count(*) n from `tabAttendance` where docstatus = 1 and employee = %s and attendance_date between %s and %s group by status""",
+        (doc.employee, doc.start_date, doc.end_date), as_dict=True,
+    )
+    leave = frappe.db.sql(
+        """select leave_type, sum(total_leave_days) days from `tabLeave Application` where docstatus = 1 and status = 'Approved'
+        and employee = %s and from_date <= %s and to_date >= %s group by leave_type""",
+        (doc.employee, doc.end_date, doc.start_date), as_dict=True,
+    )
+    # Pay lost to unpaid days: full-month amount less what was paid, on components prorated by payment days.
+    lost = sum(r["full_amount"] - r["amount"] for r in earnings if r["depends_on_payment_days"] and r["full_amount"] > r["amount"])
+
+    # Department comparison for the same payroll month.
+    dept = None
+    if doc.department:
+        d = frappe.db.sql(
+            """select count(*) n, avg(net_pay) net, avg(gross_pay) gross, sum(net_pay < %(net)s) below
+            from `tabSalary Slip` where docstatus = 1 and department = %(dept)s and start_date = %(start)s""",
+            {"dept": doc.department, "start": doc.start_date, "net": doc.net_pay}, as_dict=True,
+        )[0]
+        if d.n:
+            dept = {"department": doc.department, "slips": d.n, "avg_net": flt(d.net), "avg_gross": flt(d.gross),
+                    "percentile": round(flt(d.below) / d.n * 100) if d.n > 1 else None}
+
+    # Year to date (payroll period if the slip has one, else calendar year).
+    ytd_from = frappe.db.get_value("Payroll Period", doc.current_payroll_period, "start_date") if doc.get("current_payroll_period") else None
+    ytd_from = ytd_from or getdate(doc.start_date).replace(month=1, day=1)
+    ytd = frappe.db.sql(
+        """select count(*) n, sum(gross_pay) gross, sum(total_deduction) ded, sum(net_pay) net from `tabSalary Slip`
+        where docstatus = 1 and employee = %s and start_date between %s and %s""",
+        (doc.employee, ytd_from, doc.start_date), as_dict=True,
+    )[0]
+
+    # Income tax: what this slip and the year actually deducted (from the tax lines), next to HRMS's annual figures.
+    tax_list = list(tax_components) or [""]
+    tax_ytd = frappe.db.sql(
+        """select ifnull(sum(d.amount), 0) from `tabSalary Detail` d join `tabSalary Slip` s on s.name = d.parent and d.parenttype = 'Salary Slip'
+        where s.docstatus = 1 and s.employee = %s and s.start_date between %s and %s and d.parentfield = 'deductions' and d.salary_component in %s""",
+        (doc.employee, ytd_from, doc.start_date, tax_list),
+    )[0][0]
+    this_tax = sum(r["amount"] for r in deductions if r["is_income_tax"])
+    if doc.docstatus != 1:
+        tax_ytd = flt(tax_ytd) + this_tax  # a draft isn't in the submitted total yet
+    annual_tax, till_date = flt(doc.get("total_income_tax")), flt(doc.get("income_tax_deducted_till_date"))
+    slab = frappe.db.get_value(
+        "Salary Structure Assignment", {"employee": doc.employee, "docstatus": 1, "from_date": ["<=", doc.start_date]}, "income_tax_slab", order_by="from_date desc")
+    # A newer submitted slab already in effect for this slip's date but not the one assigned → likely out of date.
+    newer_slab = None
+    if slab:
+        cur_from = frappe.db.get_value("Income Tax Slab", slab, "effective_from")
+        newer_slab = frappe.db.get_value(
+            "Income Tax Slab",
+            {"docstatus": 1, "disabled": 0, "name": ["!=", slab], "effective_from": ["between", [add_days(cur_from, 1), doc.start_date]] if cur_from else ["<=", doc.start_date]},
+            ["name", "effective_from"], order_by="effective_from desc", as_dict=True,
+        ) if cur_from else None
+    income_tax = {
+        "newer_slab": {"name": newer_slab.name, "effective_from": str(newer_slab.effective_from)} if newer_slab else None,
+        "this_slip": this_tax,
+        "components": [r["component"] for r in deductions if r["is_income_tax"]],
+        "effective_rate": round(this_tax / flt(doc.gross_pay) * 100, 2) if flt(doc.gross_pay) else None,
+        "ytd": flt(tax_ytd),
+        "slab": slab,
+        "annual_taxable": flt(doc.get("annual_taxable_amount")),
+        "annual_tax": annual_tax,
+        "deducted_till_date": till_date,
+        # Positive: still to deduct this year; negative: more already deducted than the slab total for the year.
+        "balance": round(annual_tax - till_date, 2) if annual_tax or till_date else None,
+    }
+
+    history = frappe.db.sql(
+        """select date_format(start_date, '%%Y-%%m') month, sum(gross_pay) gross, sum(total_deduction) ded, sum(net_pay) net, count(*) slips
+        from `tabSalary Slip` where docstatus = 1 and employee = %s and start_date <= %s and start_date > date_sub(%s, interval 12 month)
+        group by month order by month""",
+        (doc.employee, doc.start_date, doc.start_date), as_dict=True,
+    )
+
+    return {
+        "slip": {
+            k: (str(doc.get(k)) if k in ("start_date", "end_date", "posting_date") and doc.get(k) else doc.get(k))
+            for k in ("name", "employee", "employee_name", "company", "department", "designation", "branch", "status", "docstatus",
+                      "posting_date", "start_date", "end_date", "salary_structure", "payroll_entry", "payroll_frequency", "currency",
+                      "total_working_days", "payment_days", "leave_without_pay", "absent_days", "unmarked_days", "gross_pay",
+                      "total_deduction", "net_pay", "rounded_total", "total_in_words", "mode_of_payment", "bank_name", "bank_account_no",
+                      "journal_entry", "ctc", "annual_taxable_amount", "income_tax_deducted_till_date", "current_month_income_tax",
+                      "future_income_tax_deductions", "total_income_tax", "gross_year_to_date", "year_to_date", "salary_withholding")
+        },
+        "employee": {"image": emp.get("image"), "designation": emp.get("designation"), "branch": emp.get("branch"),
+                     "date_of_joining": str(emp.get("date_of_joining") or ""), "salary_mode": emp.get("salary_mode"),
+                     "bank_name": emp.get("bank_name"), "bank_ac_no": emp.get("bank_ac_no")},
+        "earnings": earnings,
+        "deductions": deductions,
+        "previous": previous,
+        "attendance": {r.status: r.n for r in att},
+        "leave": leave,
+        "pay_lost_to_unpaid_days": round(lost, 2),
+        "income_tax": income_tax,
+        "department": dept,
+        "ytd": {"from": str(ytd_from), "slips": ytd.n, "gross": flt(ytd.gross), "deductions": flt(ytd.ded), "net": flt(ytd.net)},
+        "history": history,
+    }
+
+
+def _slip_where(from_date, to_date, company, department, branch, employee, search, payroll_entry):
+    f, t = _period(from_date, to_date)
+    cond, p = [], {"f": f, "t": t}
+    if company:
+        cond.append("s.company = %(company)s"); p["company"] = company
+    if department:
+        cond.append("s.department = %(department)s"); p["department"] = department
+    if branch:
+        cond.append("s.branch = %(branch)s"); p["branch"] = branch
+    if employee:
+        cond.append("s.employee = %(employee)s"); p["employee"] = employee
+    if payroll_entry:
+        cond.append("s.payroll_entry = %(payroll_entry)s"); p["payroll_entry"] = payroll_entry
+    if search:
+        cond.append("(s.employee like %(search)s or s.employee_name like %(search)s or s.name like %(search)s)"); p["search"] = f"%{search}%"
+    return f, t, "".join(f" and {c}" for c in cond), p
+
+
+@frappe.whitelist()
+def salary_slips_overview(from_date, to_date, company=None, department=None, branch=None, employee=None, search=None, payroll_entry=None):
+    """Payroll insights for slips whose period starts in [from, to]: totals, change vs the same-length period
+    before, department split, net-pay bands, component mix, top earners, status and pay lost to unpaid days."""
+    _check("Salary Slip")
+    from frappe.utils import flt
+    f, t, cond, p = _slip_where(from_date, to_date, company, department, branch, employee, search, payroll_entry)
+    base = f"from `tabSalary Slip` s where s.docstatus < 2 and s.start_date between %(f)s and %(t)s {cond}"
+    sub = f"{base} and s.docstatus = 1"
+
+    tot = frappe.db.sql(
+        f"""select count(*) n, count(distinct s.employee) employees, sum(s.base_gross_pay) gross, sum(s.base_total_deduction) ded,
+            sum(s.base_net_pay) net, sum(s.payment_days) paid_days, sum(s.total_working_days) work_days,
+            sum(s.leave_without_pay) lwp, sum(s.absent_days) absent {sub}""", p, as_dict=True)[0]
+    # Comparison period: the same number of calendar months before when the range is whole months (payroll
+    # periods start on the 1st, so shifting by days would miss them), otherwise the same number of days before.
+    from frappe.utils import add_months, get_last_day
+    if f.day == 1 and t == getdate(get_last_day(t)):
+        n_months = (t.year - f.year) * 12 + t.month - f.month + 1
+        pp = {**p, "f": getdate(add_months(f, -n_months)), "t": f - timedelta(days=1)}
+    else:
+        days = (t - f).days + 1
+        pp = {**p, "f": f - timedelta(days=days), "t": f - timedelta(days=1)}
+    prev = frappe.db.sql(f"""select count(*) n, sum(s.base_gross_pay) gross, sum(s.base_net_pay) net, sum(s.base_total_deduction) ded
+        from `tabSalary Slip` s where s.docstatus = 1 and s.start_date between %(f)s and %(t)s {cond}""", pp, as_dict=True)[0]
+    status = frappe.db.sql(f"select s.status, count(*) n, sum(s.base_net_pay) net {base} group by s.status", p, as_dict=True)
+    by_dept = frappe.db.sql(f"""select ifnull(s.department, '') department, count(*) n, sum(s.base_gross_pay) gross, sum(s.base_net_pay) net,
+        avg(s.base_net_pay) avg_net {sub} group by s.department order by gross desc""", p, as_dict=True)
+    bands = frappe.db.sql(f"""select case when s.base_net_pay < 15000 then 0 when s.base_net_pay < 25000 then 1 when s.base_net_pay < 35000 then 2
+            when s.base_net_pay < 50000 then 3 when s.base_net_pay < 100000 then 4 else 5 end b, count(*) n {sub} group by b""", p, as_dict=True)
+    band_labels = ["< 15k", "15–25k", "25–35k", "35–50k", "50–100k", "100k +"]
+    comp = frappe.db.sql(f"""select d.parentfield pf, d.salary_component c, sum(d.amount) amt, count(distinct d.parent) slips
+        from `tabSalary Detail` d join `tabSalary Slip` s on s.name = d.parent and d.parenttype = 'Salary Slip'
+        where s.docstatus = 1 and s.start_date between %(f)s and %(t)s {cond} and ifnull(d.statistical_component, 0) = 0
+        group by d.parentfield, d.salary_component order by amt desc""", p, as_dict=True)
+    tax_list = list(_income_tax_components()) or [""]
+    tax_total = frappe.db.sql(f"""select ifnull(sum(d.amount), 0), count(distinct d.parent) from `tabSalary Detail` d
+        join `tabSalary Slip` s on s.name = d.parent and d.parenttype = 'Salary Slip'
+        where s.docstatus = 1 and s.start_date between %(f)s and %(t)s {cond} and d.parentfield = 'deductions'
+            and d.amount > 0 and d.salary_component in %(tax)s""", {**p, "tax": tax_list})[0]
+    lost = frappe.db.sql(f"""select sum(d.default_amount - d.amount) from `tabSalary Detail` d
+        join `tabSalary Slip` s on s.name = d.parent and d.parenttype = 'Salary Slip'
+        where s.docstatus = 1 and s.start_date between %(f)s and %(t)s {cond} and d.parentfield = 'earnings'
+            and d.depends_on_payment_days = 1 and d.default_amount > d.amount""", p)[0][0]
+    top = frappe.db.sql(f"""select s.employee, max(s.employee_name) employee_name, max(s.department) department, max(s.designation) designation,
+        sum(s.base_net_pay) net, sum(s.base_gross_pay) gross, count(*) slips {sub} group by s.employee order by net desc limit 8""", p, as_dict=True)
+    images = dict(frappe.get_all("Employee", filters={"name": ["in", [x.employee for x in top] or [""]]}, fields=["name", "image"], as_list=True))
+    for x in top:
+        x.image = images.get(x.employee)
+    trend = frappe.db.sql(f"""select date_format(s.start_date, '%%Y-%%m') month, sum(s.base_gross_pay) gross, sum(s.base_net_pay) net,
+        sum(s.base_total_deduction) ded, count(*) n from `tabSalary Slip` s
+        where s.docstatus = 1 and s.start_date > date_sub(%(t)s, interval 12 month) and s.start_date <= %(t)s {cond}
+        group by month order by month""", p, as_dict=True)
+
+    return {
+        "from_date": str(f), "to_date": str(t),
+        "totals": {"slips": tot.n, "employees": tot.employees, "gross": flt(tot.gross), "deductions": flt(tot.ded), "net": flt(tot.net),
+                   "payment_days": flt(tot.paid_days), "working_days": flt(tot.work_days), "lwp": flt(tot.lwp), "absent": flt(tot.absent),
+                   "pay_lost": flt(lost), "income_tax": flt(tax_total[0]), "taxed_slips": tax_total[1]},
+        "previous": {"slips": prev.n, "gross": flt(prev.gross), "net": flt(prev.net), "deductions": flt(prev.ded), "from": str(pp["f"]), "to": str(pp["t"])},
+        "status": {r.status: {"count": r.n, "net": flt(r.net)} for r in status},
+        "by_department": by_dept,
+        "bands": [{"band": band_labels[i], "slips": next((r.n for r in bands if r.b == i), 0)} for i in range(len(band_labels))],
+        "earnings": [{"component": r.c, "amount": flt(r.amt), "slips": r.slips} for r in comp if r.pf == "earnings"],
+        "deductions": [{"component": r.c, "amount": flt(r.amt), "slips": r.slips} for r in comp if r.pf == "deductions"],
+        "top_earners": top,
+        "trend": trend,
+    }
+
+
+SLIP_SORT = {"start_date": "s.start_date", "employee_name": "s.employee_name", "net_pay": "s.base_net_pay", "gross_pay": "s.base_gross_pay",
+             "payment_days": "s.payment_days", "status": "s.status", "department": "s.department"}
+
+
+@frappe.whitelist()
+def salary_slip_records(from_date, to_date, company=None, department=None, branch=None, employee=None, search=None, payroll_entry=None,
+                        status=None, start=0, page_length=50, sort_by="start_date", sort_order="desc"):
+    _check("Salary Slip")
+    f, t, cond, p = _slip_where(from_date, to_date, company, department, branch, employee, search, payroll_entry)
+    if status:
+        cond += " and s.status = %(status)s"
+        p["status"] = status
+    p.update(start=cint(start), size=min(cint(page_length) or 50, 500))
+    base = f"from `tabSalary Slip` s where s.docstatus < 2 and s.start_date between %(f)s and %(t)s {cond}"
+    order = SLIP_SORT.get(sort_by, "s.start_date")
+    direction = "asc" if sort_order == "asc" else "desc"
+    rows = frappe.db.sql(
+        f"""select s.name, s.employee, s.employee_name, s.department, s.designation, s.branch, s.start_date, s.end_date, s.status, s.docstatus,
+            s.currency, s.gross_pay, s.total_deduction, s.net_pay, s.payment_days, s.total_working_days, s.leave_without_pay, s.absent_days,
+            s.payroll_entry, s.salary_structure
+        {base} order by {order} {direction}, s.name {direction} limit %(start)s, %(size)s""",
+        p, as_dict=True,
+    )
+    _add_employee_details(rows)
+    total = frappe.db.sql(f"select count(*) {base}", p)[0][0]
+    return {"rows": rows, "total": total}
+
+
+# ----------------------------------------------------------------------------- payroll run
+@frappe.whitelist()
+def payroll_run_insights(name):
+    """One payroll run, analysed: totals and how they moved since the same scope (company / branch / department /
+    designation / grade) was paid the period before, who joined or dropped out, department split, components,
+    pay bands, the biggest individual changes, attendance-driven pay loss, tax, accounting and anything to fix
+    before paying (missing slips, zero / negative net, no bank account)."""
+    pe = frappe.get_doc("Payroll Entry", name)
+    pe.check_permission("read")
+    from frappe.utils import add_days, add_months, flt
+
+    slips = frappe.db.sql(
+        """select s.name, s.employee, s.employee_name, s.department, s.designation, s.docstatus, s.status, s.gross_pay, s.total_deduction,
+            s.net_pay, s.payment_days, s.total_working_days, s.absent_days, s.leave_without_pay, s.journal_entry, s.currency
+        from `tabSalary Slip` s where s.payroll_entry = %s and s.docstatus < 2""",
+        name, as_dict=True,
+    )
+    live = [s for s in slips if s.docstatus == 1] or slips  # drafts until the slips are submitted
+    sum_ = lambda rows, k: sum(flt(r[k]) for r in rows)  # noqa: E731
+    totals = {
+        "slips": len(slips), "submitted": sum(1 for s in slips if s.docstatus == 1), "draft": sum(1 for s in slips if s.docstatus == 0),
+        "employees_in_run": len(pe.employees), "gross": sum_(live, "gross_pay"), "deductions": sum_(live, "total_deduction"), "net": sum_(live, "net_pay"),
+        "payment_days": sum_(live, "payment_days"), "working_days": sum_(live, "total_working_days"), "absent": sum_(live, "absent_days"),
+        "lwp": sum_(live, "leave_without_pay"),
+    }
+    slip_names = [s.name for s in live] or [""]
+    tax_list = list(_income_tax_components()) or [""]
+    comp = frappe.db.sql(
+        """select d.parentfield pf, d.salary_component c, sum(d.amount) amt, count(distinct d.parent) n, sum(greatest(ifnull(d.default_amount, 0) - d.amount, 0) * d.depends_on_payment_days) lost
+        from `tabSalary Detail` d where d.parenttype = 'Salary Slip' and d.parent in %s and ifnull(d.statistical_component, 0) = 0 and d.amount != 0
+        group by d.parentfield, d.salary_component order by amt desc""",
+        (slip_names,), as_dict=True,
+    )
+    totals["income_tax"] = sum(flt(r.amt) for r in comp if r.pf == "deductions" and r.c in tax_list)
+    totals["pay_lost"] = sum(flt(r.lost) for r in comp if r.pf == "earnings")
+
+    # ---- same scope, previous period (all slips, not one run: a period can be paid in several runs)
+    scope, sp = ["s.company = %(company)s"], {"company": pe.company}
+    for field in ("branch", "department", "designation"):
+        if pe.get(field):
+            scope.append(f"s.{field} = %({field})s")
+            sp[field] = pe.get(field)
+    months = max(1, round(((getdate(pe.end_date) - getdate(pe.start_date)).days + 1) / 30))
+    prev_from = getdate(add_months(pe.start_date, -months)) if pe.payroll_frequency in (None, "", "Monthly") else add_days(pe.start_date, -((getdate(pe.end_date) - getdate(pe.start_date)).days + 1))
+    sp.update(pf=prev_from, pt=add_days(pe.start_date, -1))
+    prev_rows = frappe.db.sql(
+        f"""select s.employee, max(s.employee_name) employee_name, max(s.department) department, sum(s.gross_pay) gross, sum(s.net_pay) net,
+            sum(s.total_deduction) ded, sum(s.payment_days) paid
+        from `tabSalary Slip` s where s.docstatus = 1 and s.start_date between %(pf)s and %(pt)s and {' and '.join(scope)} group by s.employee""",
+        sp, as_dict=True,
+    )
+    prev_by = {r.employee: r for r in prev_rows}
+    now_by = {}
+    for s_ in live:
+        n = now_by.setdefault(s_.employee, {"employee": s_.employee, "employee_name": s_.employee_name, "department": s_.department,
+                                            "designation": s_.designation, "net": 0.0, "gross": 0.0, "paid": 0.0, "working": 0.0})
+        n["net"] += flt(s_.net_pay)
+        n["gross"] += flt(s_.gross_pay)
+        n["paid"] += flt(s_.payment_days)
+        n["working"] += flt(s_.total_working_days)
+    joined = [now_by[e] for e in now_by if e not in prev_by]
+    left = [prev_by[e] for e in prev_by if e not in now_by]
+    changes = []
+    for e, n in now_by.items():
+        p = prev_by.get(e)
+        if p and flt(p.net) and abs(n["net"] - flt(p.net)) >= 1:
+            changes.append({**n, "prev_net": flt(p.net), "change": n["net"] - flt(p.net), "pct": (n["net"] - flt(p.net)) / flt(p.net) * 100,
+                            "prev_paid": flt(p.paid)})
+    changes.sort(key=lambda x: x["change"])
+    previous = {
+        "from": str(prev_from), "to": str(sp["pt"]), "employees": len(prev_rows),
+        "gross": sum(flt(r.gross) for r in prev_rows), "net": sum(flt(r.net) for r in prev_rows), "deductions": sum(flt(r.ded) for r in prev_rows),
+    } if prev_rows else None
+    stayed = [e for e in now_by if e in prev_by]
+    bridge = None
+    if previous:
+        # Net-pay bridge: previous total → leavers out → joiners in → change for people paid both times → this run.
+        bridge = {
+            "previous": previous["net"],
+            "leavers": -sum(flt(r.net) for r in left),
+            "joiners": sum(n["net"] for n in joined),
+            "existing": sum(now_by[e]["net"] - flt(prev_by[e].net) for e in stayed),
+            "current": totals["net"],
+        }
+
+    # ---- department split and pay bands
+    depts = {}
+    for s_ in live:
+        dd = depts.setdefault(s_.department or "", {"department": s_.department or "", "slips": 0, "gross": 0.0, "net": 0.0, "paid": 0.0, "working": 0.0})
+        dd["slips"] += 1
+        dd["gross"] += flt(s_.gross_pay)
+        dd["net"] += flt(s_.net_pay)
+        dd["paid"] += flt(s_.payment_days)
+        dd["working"] += flt(s_.total_working_days)
+    prev_dept = {}
+    for r in prev_rows:
+        prev_dept[r.department or ""] = prev_dept.get(r.department or "", 0.0) + flt(r.net)
+    for k, dd in depts.items():
+        dd["prev_net"] = prev_dept.get(k)
+    bands_def = [("< 15k", 15000), ("15–25k", 25000), ("25–35k", 35000), ("35–50k", 50000), ("50–100k", 100000), ("100k +", float("inf"))]
+    bands = [{"band": b, "slips": 0} for b, _ in bands_def]
+    for s_ in live:
+        for i, (_, hi) in enumerate(bands_def):
+            if flt(s_.net_pay) < hi:
+                bands[i]["slips"] += 1
+                break
+    nets = sorted(flt(s_.net_pay) for s_ in live)
+    median = nets[len(nets) // 2] if nets else 0
+
+    # ---- things to fix before paying
+    have_slip = {s_.employee for s_ in slips}
+    missing = [{"employee": r.employee, "employee_name": r.employee_name, "department": r.department} for r in pe.employees if r.employee not in have_slip]
+    zero_net = [{"name": s_.name, "employee": s_.employee, "employee_name": s_.employee_name, "net_pay": flt(s_.net_pay)} for s_ in live if flt(s_.net_pay) <= 0]
+    no_days = [{"name": s_.name, "employee": s_.employee, "employee_name": s_.employee_name} for s_ in live if not flt(s_.payment_days)]
+    emp_info = {e.name: e for e in frappe.get_all("Employee", filters={"name": ["in", list(now_by) or [""]]}, fields=["name", "salary_mode", "bank_name", "bank_ac_no", "image", "status"])}
+    no_bank = [{"employee": e, "employee_name": now_by[e]["employee_name"]} for e, info in emp_info.items() if info.salary_mode == "Bank" and not info.bank_ac_no]
+    no_mode = [{"employee": e, "employee_name": now_by[e]["employee_name"]} for e, info in emp_info.items() if not info.salary_mode]
+    not_active = [{"employee": e, "employee_name": now_by[e]["employee_name"], "status": info.status} for e, info in emp_info.items() if info.status != "Active"]
+    pay_modes = {}
+    for info in emp_info.values():
+        mode = info.salary_mode or "Not set"
+        pay_modes[mode] = pay_modes.get(mode, 0) + 1
+    withheld = [r.employee for r in pe.employees if r.get("is_salary_withheld")]
+
+    # ---- accounting
+    jes = sorted({s_.journal_entry for s_ in live if s_.journal_entry})
+    je_rows = frappe.get_all("Journal Entry", filters={"name": ["in", jes or [""]]}, fields=["name", "voucher_type", "posting_date", "total_debit", "docstatus"])
+    bank = frappe.db.sql(
+        """select je.name, je.posting_date, je.total_debit, je.docstatus from `tabJournal Entry` je
+        where je.docstatus < 2 and je.voucher_type = 'Bank Entry' and exists (select 1 from `tabJournal Entry Account` a
+            where a.parent = je.name and a.reference_type = 'Payroll Entry' and a.reference_name = %s)""",
+        name, as_dict=True,
+    )
+
+    top = sorted(now_by.values(), key=lambda x: -x["net"])[:5]
+    for x in top + changes[:5] + changes[-5:] + joined[:8]:
+        x["image"] = emp_info.get(x["employee"], {}).get("image") if x["employee"] in emp_info else None
+
+    return {
+        "run": {"name": pe.name, "status": pe.status, "docstatus": pe.docstatus, "start_date": str(pe.start_date), "end_date": str(pe.end_date),
+                "posting_date": str(pe.posting_date), "frequency": pe.payroll_frequency, "branch": pe.branch, "department": pe.department,
+                "designation": pe.designation, "currency": pe.currency, "payment_account": pe.payment_account},
+        "totals": totals,
+        "median_net": median,
+        "previous": previous,
+        "bridge": bridge,
+        "joined": joined[:20],
+        "joined_count": len(joined),
+        "left": [{"employee": r.employee, "employee_name": r.employee_name, "department": r.department, "net": flt(r.net)} for r in left[:20]],
+        "left_count": len(left),
+        "biggest_drops": [c for c in changes[:5] if c["change"] < 0],
+        "biggest_rises": [c for c in reversed(changes[-5:]) if c["change"] > 0],
+        "by_department": sorted(depts.values(), key=lambda x: -x["gross"]),
+        "earnings": [{"component": r.c, "amount": flt(r.amt), "slips": r.n, "lost": flt(r.lost)} for r in comp if r.pf == "earnings"],
+        "deductions": [{"component": r.c, "amount": flt(r.amt), "slips": r.n, "is_income_tax": int(r.c in tax_list)} for r in comp if r.pf == "deductions"],
+        "bands": bands,
+        "top_earners": top,
+        "pay_modes": pay_modes,
+        "issues": {"missing_slips": missing[:20], "missing_count": len(missing), "zero_net": zero_net[:20], "no_payment_days": no_days[:20],
+                   "no_bank_account": no_bank[:20], "no_bank_count": len(no_bank), "no_salary_mode": no_mode[:20], "no_salary_mode_count": len(no_mode),
+                   "not_active": not_active[:20], "not_active_count": len(not_active), "withheld": withheld},
+        "accounting": {"accrual": je_rows, "bank_entries": bank},
+    }
