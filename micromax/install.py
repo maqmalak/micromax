@@ -363,6 +363,18 @@ def _build_custom_fields():
     ):
         data.setdefault(dt, []).append(field)
 
+    # ---------------------------------------------------------- Branch location
+    # Address and map coordinates, read by the React HR Branches page to pin every branch on a map.
+    for field in (
+        {"fieldname": "location_section", "label": "Location", "fieldtype": "Section Break", "insert_after": "branch"},
+        {"fieldname": "branch_address", "label": "Address", "fieldtype": "Small Text", "insert_after": "location_section"},
+        {"fieldname": "city", "label": "City", "fieldtype": "Data", "insert_after": "branch_address", "in_list_view": 1},
+        {"fieldname": "location_column", "fieldtype": "Column Break", "insert_after": "city"},
+        {"fieldname": "latitude", "label": "Latitude", "fieldtype": "Float", "precision": "6", "insert_after": "location_column"},
+        {"fieldname": "longitude", "label": "Longitude", "fieldtype": "Float", "precision": "6", "insert_after": "latitude"},
+    ):
+        data.setdefault("Branch", []).append(field)
+
     return data
 
 def create_roles():
@@ -472,6 +484,14 @@ def _adopt_orphaned_custom_fields(data):
             module = frappe.db.get_value("Custom Field", name, "module")
             if module and not frappe.db.exists("Module Def", module):
                 frappe.db.set_value("Custom Field", name, "module", "MicroMax", update_modified=False)
+
+
+def add_hr_indexes():
+    """Employee Checkin has no index on `time`, so a one-day check-in count scans the whole table (~20 s at
+    a million rows). The Shift and Attendance pages filter on it."""
+    if frappe.db.table_exists("Employee Checkin"):
+        frappe.db.add_index("Employee Checkin", ["time"])
+        frappe.db.add_index("Employee Checkin", ["employee", "time"])
 
 
 def make_custom_fields():

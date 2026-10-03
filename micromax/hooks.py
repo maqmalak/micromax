@@ -81,6 +81,7 @@ fixtures = [
 
 before_migrate = [
     "micromax.install.make_custom_fields",
+    "micromax.install.add_hr_indexes",
     "micromax.install.make_crm_notification_email_option",
     "micromax.install.make_crm_organization_employee_options",
     "micromax.install.make_crm_organization_address_freetext",
@@ -89,6 +90,7 @@ before_migrate = [
 
 after_install = [
     "micromax.install.make_custom_fields",
+    "micromax.install.add_hr_indexes",
     "micromax.install.make_crm_notification_email_option",
     "micromax.install.make_crm_organization_employee_options",
     "micromax.install.make_crm_organization_address_freetext",
