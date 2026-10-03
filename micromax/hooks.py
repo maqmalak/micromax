@@ -8,7 +8,8 @@ app_publisher = "MicroMax"
 app_description = "MicroMax Import/Export customization for ERPNext"
 app_email = "dev@example.com"
 app_license = "mit"
-required_apps = ["erpnext"]
+# mm_core holds the Custom Fields shared with the other sites on this bench (Customer, Supplier, Sales Order...).
+required_apps = ["erpnext", "mm_core"]
 app_home = "/desk/micromax"
 
 add_to_apps_screen = [
