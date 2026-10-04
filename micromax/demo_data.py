@@ -115,6 +115,13 @@ def generate(company=None, from_date="2025-07-01", to_date=None, seed=7, force=0
     demo_setup._party_tax_categories(ctx)
     demo_setup.number_accounts(ctx)    # numbered chart of accounts (new accounts only)
     frappe.db.commit()
+    # Standard templates (mm_core.setup_templates): payment terms, terms & conditions, journal entry templates on
+    # this company's accounts, and a fiscal-year Holiday List if the company has none. Only missing ones are created.
+    from mm_core.setup_templates import apply as apply_standard_templates
+
+    apply_standard_templates(company)
+    ctx.log("Standard templates checked (payment terms, terms & conditions, journal entry templates, holiday list)")
+    frappe.db.commit()
 
     if not cint(force) and frappe.db.exists("Stock Entry", {"company": company, "docstatus": 1,
                                                             "remarks": ["like", f"%{DEMO_TAG}%"]}):
