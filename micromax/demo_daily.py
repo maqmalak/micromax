@@ -521,6 +521,28 @@ def daily_hr_requests(ctx, day):
             ctx.log(f"  ! expense claim: {str(ex)[:160]}")
 
 
+def seed_hr(company=None, days=7, template="spinning_mill"):
+    """One-off: leave requests / expense claims for the last `days` working days (some decided, some pending), so
+    the approvals inbox has HR items and history right away instead of building up from tonight's run.
+
+        bench --site demo execute micromax.demo_daily.seed_hr --kwargs "{'company': 'MicroMax Erp Pvt Ltd.'}"
+    """
+    from micromax import demo_data as dd
+
+    company = company or frappe.conf.get("demo_daily_company")
+    today = getdate(nowdate())
+    ctx = dd.prepare(company, _load(company).get("origin") or "2025-07-01", today, seed=f"seed_hr|{company}", template=template)
+    d = add_days(today, -cint(days))
+    while getdate(d) <= today:
+        if getdate(d).weekday() != 6:
+            ctx.end, ctx._current_day, ctx.rnd = getdate(d), getdate(d), random.Random(f"seed_hr|{company}|{d}")
+            daily_hr_requests(ctx, getdate(d))
+            frappe.db.commit()
+        d = add_days(d, 1)
+    ctx.log(f"HR requests seeded for {company}: {ctx.counts}")
+    return ctx.counts
+
+
 def _decide(ctx, act, doctype, name, approve):
     try:
         act(doctype, name, "Approve" if approve else "Reject")
