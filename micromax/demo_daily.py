@@ -142,6 +142,8 @@ def _one_day(dd, ctx, day, queue):
         at(day, -1, demo_modules.month_start, day)
     if working:
         at(day, 0.5, daily_stores, day)               # consumables issued; reorder -> MR -> PO
+    if working:
+        at(day, 9.3, daily_hr_requests, day)          # leave requests / expense claims for the approvals inbox
     at(day, 9.4, daily_attendance, day)
     if add_days(day, 1).month != day.month:
         at(day, 8.5, dd._sell_waste, day)
@@ -222,6 +224,10 @@ def daily_attendance(ctx, day):
                                               ["name", "employee_name", "default_shift", "department", "status",
                                                "date_of_joining", "relieving_date"])}
     default_shift = next((s["name"] for s in hr["shifts"] if "General" in s["name"]), hr["shifts"][0]["name"])
+    # Approved leave covering the day (from the approvals inbox): On Leave with its leave type, no new application.
+    approved_leave = dict(frappe.get_all("Leave Application", {"company": ctx.company, "docstatus": 1, "status": "Approved",
+                                                               "from_date": ["<=", day], "to_date": [">=", day]},
+                                         ["employee", "leave_type"], as_list=True))
     ts = now()
     att, chk, leaves = [], [], []
     for e in info.values():
@@ -232,6 +238,9 @@ def daily_attendance(ctx, day):
         if not s:
             continue
         att_name = f"HR-ATT-MMD-{frappe.generate_hash(length=10)}"
+        if e.name in approved_leave:
+            att.append((att_name, e, "On Leave", approved_leave[e.name], shift, None, None, 0, 0, 0))
+            continue
         r = rnd.random()
         if r < absent_rate:
             att.append((att_name, e, "Absent", None, shift, None, None, 0, 0, 0))
@@ -413,6 +422,113 @@ def _requested(ctx, code):
     return flt(frappe.db.sql("""select sum(greatest(i.stock_qty - i.ordered_qty, 0)) from `tabMaterial Request Item` i
         join `tabMaterial Request` m on m.name = i.parent where m.company = %s and m.docstatus = 1
         and m.status in ('Pending', 'Partially Ordered') and i.item_code = %s""", (ctx.company, code))[0][0])
+
+
+# ============================================================================ HR requests for the approvals inbox
+LEAVE_REASONS = ["Family wedding", "Medical appointment", "Personal work", "Child's school event", "Travel to hometown",
+                 "Unwell — fever", "House shifting", "Bank / NADRA work"]
+EXPENSE_LINES = {"Travel": (1500, 18000), "Food": (800, 6000), "Medical": (1200, 25000), "Calls": (500, 3000),
+                 "fuel Mill": (2000, 15000), "Repair and maintenance": (2500, 30000), "Others": (500, 8000)}
+
+
+def _hr_approver():
+    for u in (frappe.conf.get("demo_hr_approver"), "director@micromaxonline.uk"):
+        if u and frappe.db.get_value("User", u, "enabled"):
+            return u
+    return "Administrator"
+
+
+def _casual_allocation(ctx, employee, day):
+    """A year's Casual Leave allocation (10 days) for the employee, so a casual leave request can be approved."""
+    y0, y1 = getdate(day).replace(month=1, day=1), getdate(day).replace(month=12, day=31)
+    if frappe.db.exists("Leave Allocation", {"employee": employee, "leave_type": "Casual Leave", "docstatus": 1,
+                                             "from_date": ["<=", day], "to_date": [">=", day]}):
+        return True
+    try:
+        la = frappe.get_doc({"doctype": "Leave Allocation", "employee": employee, "leave_type": "Casual Leave",
+                             "from_date": y0, "to_date": y1, "new_leaves_allocated": 10, "company": ctx.company})
+        la.insert(ignore_permissions=True)
+        la.submit()
+        return True
+    except Exception:
+        frappe.db.rollback()
+        return False
+
+
+def daily_hr_requests(ctx, day):
+    """Working day: a few leave requests and expense claims arrive (pending approval); older pending ones are
+    decided — mostly approved, some rejected — through the same path as the React approvals inbox."""
+    from mm_core.approvals import act
+
+    if not ctx.t.get("hr") or not getattr(ctx, "employees", None):
+        return
+    rnd, c, approver = ctx.rnd, ctx.company, _hr_approver()
+    active = [e for e in ctx.employees.values() if getdate(e.date_of_joining) <= day
+              and not (e.relieving_date and getdate(e.relieving_date) < day)]
+    if not active:
+        return
+    # 1. Decide earlier requests (each waits ~2 days on average)
+    lf = {"company": c, "docstatus": 0, "status": "Open", "posting_date": ["<", day]}
+    if frappe.get_meta("Leave Application").has_field("workflow_state"):
+        lf["workflow_state"] = ["not in", ["Rejected", "Approved"]]      # a workflow rejection stays a draft
+    for name in frappe.get_all("Leave Application", lf, pluck="name"):
+        if rnd.random() < 0.45:
+            _decide(ctx, act, "Leave Application", name, rnd.random() < 0.85)
+    if frappe.db.exists("DocType", "Expense Claim"):
+        for name in frappe.get_all("Expense Claim", {"company": c, "docstatus": 0, "approval_status": "Draft",
+                                                    "posting_date": ["<", day]}, pluck="name"):
+            if rnd.random() < 0.4:
+                _decide(ctx, act, "Expense Claim", name, rnd.random() < 0.8)
+    # 2. New leave requests (dates ahead)
+    for _i in range(rnd.choice([0, 1, 1, 2, 2, 3])):
+        e = rnd.choice(active)
+        start = add_days(day, rnd.randint(1, 20))
+        lt = "Casual Leave" if rnd.random() < 0.7 and _casual_allocation(ctx, e.name, start) else "Leave Without Pay"
+        try:
+            doc = frappe.get_doc({"doctype": "Leave Application", "employee": e.name, "leave_type": lt, "company": c,
+                                  "from_date": start, "to_date": add_days(start, rnd.choice([0, 0, 1, 2])),
+                                  "posting_date": day, "leave_approver": approver, "description": rnd.choice(LEAVE_REASONS),
+                                  "follow_via_email": 0})
+            doc.insert(ignore_permissions=True)
+            frappe.db.commit()
+            ctx.bump("Leave request")
+        except Exception as ex:
+            frappe.db.rollback()
+            ctx.log(f"  ! leave request: {str(ex)[:160]}")
+    # 3. New expense claims
+    if not frappe.db.exists("DocType", "Expense Claim"):
+        return
+    types = [t for t in EXPENSE_LINES if frappe.db.exists("Expense Claim Account", {"parent": t, "company": c})]
+    payable = frappe.db.get_value("Company", c, "default_expense_claim_payable_account") or \
+        frappe.db.get_value("Company", c, "default_payable_account")
+    if not types or not payable:
+        return
+    for _i in range(rnd.choice([0, 0, 1, 1, 2])):
+        e = rnd.choice(active)
+        rows = []
+        for t in rnd.sample(types, k=min(len(types), rnd.choice([1, 1, 2, 3]))):
+            amt = round(rnd.uniform(*EXPENSE_LINES[t]) / 50) * 50
+            rows.append({"expense_date": add_days(day, -rnd.randint(0, 6)), "expense_type": t, "amount": amt,
+                         "sanctioned_amount": amt, "cost_center": ctx.cost_center, "description": t})
+        try:
+            doc = frappe.get_doc({"doctype": "Expense Claim", "employee": e.name, "company": c, "posting_date": day,
+                                  "expense_approver": approver, "payable_account": payable, "expenses": rows})
+            doc.insert(ignore_permissions=True)
+            frappe.db.commit()
+            ctx.bump("Expense claim")
+        except Exception as ex:
+            frappe.db.rollback()
+            ctx.log(f"  ! expense claim: {str(ex)[:160]}")
+
+
+def _decide(ctx, act, doctype, name, approve):
+    try:
+        act(doctype, name, "Approve" if approve else "Reject")
+        frappe.db.commit()
+        ctx.bump(f"{doctype} {'approved' if approve else 'rejected'}")
+    except Exception as ex:
+        frappe.db.rollback()
+        ctx.log(f"  ! {doctype} {name}: {str(ex)[:160]}")
 
 
 # ============================================================================ first run: pick up open documents
