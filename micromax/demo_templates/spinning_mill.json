@@ -1534,5 +1534,97 @@
       "per_share": 0.3,
       "wht": 0.15
     }
+  },
+  "stores": {
+    "_about": "Daily stores & spares (demo_daily): the floor issues consumables to production every working day (Material Issue); below reorder level the store raises a Material Request -> Purchase Order -> Receipt -> Invoice -> Payment.",
+    "warehouse": "Stores",
+    "item_group": "Stores and Spares",
+    "expense_account": "Stores and Spares Consumed",
+    "supplier_group": "Stores Suppliers",
+    "suppliers": [
+      "Faisalabad Mill Stores",
+      "Punjab Packaging Industries",
+      "Lyallpur Textile Spares"
+    ],
+    "items": [
+      {
+        "code": "MM-S-CONE",
+        "name": "Paper Cone 4°20'",
+        "uom": "Nos",
+        "rate": 9,
+        "daily_use": [
+          2500,
+          4500
+        ],
+        "reorder_level": 25000,
+        "reorder_qty": 60000,
+        "supplier": "Punjab Packaging Industries"
+      },
+      {
+        "code": "MM-S-POLYBAG",
+        "name": "Poly Bag (yarn packing)",
+        "uom": "Nos",
+        "rate": 14,
+        "daily_use": [
+          150,
+          320
+        ],
+        "reorder_level": 2500,
+        "reorder_qty": 8000,
+        "supplier": "Punjab Packaging Industries"
+      },
+      {
+        "code": "MM-S-CARTON",
+        "name": "Export Carton 5-ply",
+        "uom": "Nos",
+        "rate": 115,
+        "daily_use": [
+          40,
+          110
+        ],
+        "reorder_level": 800,
+        "reorder_qty": 2500,
+        "supplier": "Punjab Packaging Industries"
+      },
+      {
+        "code": "MM-S-TRAVELLER",
+        "name": "Ring Traveller (box of 1000)",
+        "uom": "Box",
+        "rate": 1850,
+        "daily_use": [
+          2,
+          6
+        ],
+        "reorder_level": 40,
+        "reorder_qty": 120,
+        "supplier": "Lyallpur Textile Spares"
+      },
+      {
+        "code": "MM-S-OIL",
+        "name": "Spindle Oil",
+        "uom": "Litre",
+        "rate": 780,
+        "daily_use": [
+          6,
+          14
+        ],
+        "reorder_level": 120,
+        "reorder_qty": 400,
+        "supplier": "Faisalabad Mill Stores"
+      },
+      {
+        "code": "MM-S-TAPE",
+        "name": "Spindle Tape",
+        "uom": "Nos",
+        "rate": 65,
+        "daily_use": [
+          10,
+          30
+        ],
+        "reorder_level": 300,
+        "reorder_qty": 1000,
+        "supplier": "Lyallpur Textile Spares"
+      }
+    ]
   }
 }

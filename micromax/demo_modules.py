@@ -958,7 +958,7 @@ def month_end(ctx, day):
 
 # ============================================================================ undo
 RAW_DELETE = {"Quality Inspection", "Non Conformance", "Quality Review", "Quality Action", "Export Shipment", "LC Proforma",
-              "Import Shipment", "Import Cost Sheet", "Attendance", "Leave Application", "Employee"}
+              "Import Shipment", "Import Cost Sheet", "Attendance", "Leave Application", "Employee", "Employee Checkin"}
 
 
 def raw_delete(dt, name):
@@ -1009,6 +1009,7 @@ def purge_plan(company, items, tag):
                             (company, emps))),
         ("Payroll Entry", sql("select name from `tabPayroll Entry` where name in %s and docstatus<2 order by posting_date desc", (pes,))),
         ("Salary Structure Assignment", sql("select name from `tabSalary Structure Assignment` where employee in %s and docstatus<2", (emps,))),
+        ("Employee Checkin", sql("select name from `tabEmployee Checkin` where employee in %s", (emps,))),   # demo_daily
         ("Attendance", sql("select name from `tabAttendance` where employee in %s", (emps,))),
         ("Leave Application", sql("select name from `tabLeave Application` where employee in %s", (emps,))),
         # assets: depreciation entries, then the assets (cancelling one cancels its movements and schedules)

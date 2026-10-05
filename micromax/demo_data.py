@@ -94,16 +94,38 @@ def _company(t, company=None):
 # ============================================================================ entry point
 def generate(company=None, from_date="2025-07-01", to_date=None, seed=7, force=0, sales_every_days=2,
              template="spinning_mill"):
-    frappe.set_user("Administrator")
-    frappe.flags.mute_emails = True
-    t = load_template(template)
-    company = _company(t, company)
     to_date = getdate(to_date or nowdate())
     from_date = getdate(from_date)
+    ctx = prepare(company, from_date, to_date, seed, template)
+    company = ctx.company
 
-    ctx = _Ctx(company, random.Random(cint(seed)), t)
-    ctx.start, ctx.end = from_date, to_date
-    ctx.log(f"Company {company} ({ctx.abbr}), {from_date} → {to_date}, template {template}")
+    if not cint(force) and frappe.db.exists("Stock Entry", {"company": company, "docstatus": 1,
+                                                            "remarks": ["like", f"%{DEMO_TAG}%"]}):
+        ctx.log("Demo transactions already exist for this company — skipping (pass force=1 to add another run).")
+        return ctx.summary()
+
+    saved = _tune_manufacturing_settings()
+    try:
+        with _inline_background_jobs():
+            transactions(ctx, from_date, to_date, cint(sales_every_days) or 2)
+    finally:
+        _restore_manufacturing_settings(saved)
+        frappe.db.commit()
+    ctx.log("Done.")
+    return ctx.summary()
+
+
+def prepare(company, from_date, to_date, seed=7, template="spinning_mill"):
+    """Context + masters for a run (shared by generate and the daily job micromax.demo_daily). Masters are only
+    created when missing, so this is safe to call every day."""
+    frappe.set_user("Administrator")
+    frappe.flags.mute_emails = True
+    from_date, to_date = getdate(from_date), getdate(to_date)
+    t = load_template(template)
+    company = _company(t, company)
+    ctx = _Ctx(company, random.Random(seed if isinstance(seed, str) else cint(seed)), t)
+    ctx.start, ctx.end = getdate(from_date), getdate(to_date)
+    ctx.log(f"Company {company} ({ctx.abbr}), {ctx.start} → {ctx.end}, template {template}")
 
     _ensure_fiscal_years(from_date, to_date, company)
     masters(ctx)
@@ -122,21 +144,7 @@ def generate(company=None, from_date="2025-07-01", to_date=None, seed=7, force=0
     apply_standard_templates(company)
     ctx.log("Standard templates checked (payment terms, terms & conditions, journal entry templates, holiday list)")
     frappe.db.commit()
-
-    if not cint(force) and frappe.db.exists("Stock Entry", {"company": company, "docstatus": 1,
-                                                            "remarks": ["like", f"%{DEMO_TAG}%"]}):
-        ctx.log("Demo transactions already exist for this company — skipping (pass force=1 to add another run).")
-        return ctx.summary()
-
-    saved = _tune_manufacturing_settings()
-    try:
-        with _inline_background_jobs():
-            transactions(ctx, from_date, to_date, cint(sales_every_days) or 2)
-    finally:
-        _restore_manufacturing_settings(saved)
-        frappe.db.commit()
-    ctx.log("Done.")
-    return ctx.summary()
+    return ctx
 
 
 _CTX = None          # the running generator's context (for site-specific mandatory fields on masters)
@@ -677,13 +685,21 @@ def _balance(ctx, code, warehouse):
     return flt(get_stock_balance(code, warehouse, ctx._current_day or nowdate(), "23:59:59"))
 
 
+def _on_order(ctx, code):
+    """Fibre ordered but not received yet (open purchase orders), so a daily run doesn't re-order the same shortage."""
+    return flt(frappe.db.sql("""select sum(greatest(i.qty - i.received_qty, 0)) from `tabPurchase Order Item` i
+        join `tabPurchase Order` p on p.name = i.parent
+        where p.company = %s and p.docstatus = 1 and p.status in ('To Receive and Bill', 'To Receive') and i.item_code = %s""",
+                             (ctx.company, code))[0][0])
+
+
 def _replenish_fibre(ctx, day):
     """Weekly: request what keeps each fibre at its reorder level, order it, receive, bill and pay later."""
     from erpnext.stock.doctype.material_request.material_request import make_purchase_order
     rnd = ctx.rnd
     lines = []
     for f in ctx.t.fibres:
-        need = flt(f.get("reorder_to", 20000)) - _balance(ctx, f["code"], ctx.wh["fibre"])
+        need = flt(f.get("reorder_to", 20000)) - _balance(ctx, f["code"], ctx.wh["fibre"]) - _on_order(ctx, f["code"])
         if need > 2000:
             lines.append((f["code"], round(need / 500 + 0.5) * 500, f["rate"]))
     if not lines:
@@ -698,7 +714,7 @@ def _replenish_fibre(ctx, day):
         po.items = [i for i in po.items if i.item_code == code]
         imp = demo_modules.import_supplier_for(ctx, code)      # some lots are imported (longer lead time)
         po.supplier = imp["name"] if imp else rnd.choice(ctx.t.suppliers)
-        po.transaction_date = add_days(day, rnd.randint(1, 3))
+        po.transaction_date = min(getdate(add_days(day, rnd.randint(1, 3))), getdate(nowdate()))   # never future-dated
         po.schedule_date = add_days(po.transaction_date, imp["transit"] + 12 if imp else rnd.randint(4, 12))
         for i in po.items:
             i.schedule_date = po.schedule_date

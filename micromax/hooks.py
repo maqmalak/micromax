@@ -63,6 +63,8 @@ scheduler_events = {
         "micromax.micromax_export.utils.alerts.process_lc_alerts",
     ],
     # The CRM reminder / mail-status job (every 5 min) moved to mm_core's hooks (mm_core.crm_reminders).
+    # Daily demo data at 23:00, only on sites with `demo_daily_company` in site_config (see micromax/demo_daily.py).
+    "cron": {"0 23 * * *": ["micromax.demo_daily.scheduled"]},
 }
 
 # For each DocType created by this app, no doc_events hooks are strictly needed,
