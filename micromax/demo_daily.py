@@ -120,6 +120,7 @@ def _run(dd, company, upto, template, origin, start):
 def _one_day(dd, ctx, day, queue):
     from micromax import demo_modules, demo_projects
 
+    run_start = now()
     ctx.end = day
     ctx.rnd = random.Random(f"{ctx.company}|{day}")
     rnd, f = ctx.rnd, ctx.t.season[day.month]
@@ -148,6 +149,7 @@ def _one_day(dd, ctx, day, queue):
         at(day, 0.5, daily_stores, day)               # consumables issued; reorder -> MR -> PO
     if working:
         at(day, 9.3, daily_hr_requests, day)          # leave requests / expense claims for the approvals inbox
+        at(day, 9.35, daily_loans, day)               # salary loan requests → approve & pay / reject
     at(day, 9.4, daily_attendance, day)
     at(day, 9.6, demo_projects.daily, day)            # running projects move on (tasks start / progress / finish)
     if add_days(day, 1).month != day.month:
@@ -171,6 +173,7 @@ def _one_day(dd, ctx, day, queue):
             frappe.db.rollback()
             ctx.log(f"  ! {day} {fn.__name__}: {str(e)[:220]}")
             ctx.bump("errors")
+    _stamp_users(ctx, run_start)
     ctx.log(f"{day}: {ctx.counts}")
     return later
 
@@ -195,6 +198,70 @@ def _catch_up_month(ctx, day):
         frappe.db.rollback()
         ctx.log(f"  ! payroll catch-up {prev_last}: {str(e)[:220]}")
         ctx.bump("errors")
+
+
+# ============================================================================ live users
+# Documents look entered by the team, not by Administrator: after each day the day's documents are stamped with a
+# user from the role that would make them (first ones that exist on the site), and approvals run as the director.
+ROLE_USERS = {
+    "sales": ["sales@micromaxonline.uk", "john.demo@example.com", "emily.demo@example.com", "sarah.demo@example.com"],
+    "buying": ["purchase@micromaxonline.uk", "vision@micromaxonline.uk"],
+    "production": ["spinning@micromaxonline.uk", "rehan.qureshi@micromax-demo.pk", "ayesha.malik@micromax-demo.pk",
+                   "noman.rafiq@micromax-demo.pk", "kamran.akhtar@micromax-demo.pk", "sadia.batool@micromax-demo.pk",
+                   "imran.siddiqui@micromax-demo.pk"],
+    "accounts": ["ceo@micromaxonline.uk"],
+    "hr": ["hr@micromaxonline.uk", "demo@micromaxonline.uk"],
+    "payroll": ["payroll@micromaxonline.uk", "hr@micromaxonline.uk"],
+}
+DOCTYPE_ROLE = {
+    "Quotation": "sales", "Sales Order": "sales", "Delivery Note": "sales", "Sales Invoice": "sales", "LC Proforma": "sales",
+    "Export Shipment": "sales",
+    "Material Request": "buying", "Purchase Order": "buying", "Purchase Receipt": "buying", "Purchase Invoice": "buying",
+    "Import Shipment": "buying", "Landed Cost Voucher": "buying",
+    "Production Plan": "production", "Work Order": "production", "Job Card": "production", "Stock Entry": "production",
+    "Quality Inspection": "production", "Non Conformance": "production",
+    "Payment Entry": "accounts", "Journal Entry": "accounts",
+    "Attendance": "hr", "Employee Checkin": "hr", "Leave Application": "hr", "Expense Claim": "hr", "Employee Advance": "hr",
+    "Leave Allocation": "hr", "Task": "production",
+    "Additional Salary": "payroll", "Payroll Entry": "payroll", "Salary Slip": "payroll",
+}
+_ROLE_CACHE = {}
+
+
+def _role_users(role):
+    if role not in _ROLE_CACHE:
+        _ROLE_CACHE[role] = [u for u in ROLE_USERS.get(role, []) if frappe.db.get_value("User", u, "enabled")]
+    return _ROLE_CACHE[role]
+
+
+def _stamp_users(ctx, since):
+    """Documents created since `since` by Administrator → owner / modified_by = a user of the role that makes them."""
+    for dt, role in DOCTYPE_ROLE.items():
+        users = _role_users(role)
+        if not users or not frappe.db.exists("DocType", dt):
+            continue
+        names = frappe.db.sql(f"select name from `tab{dt}` where owner = 'Administrator' and creation >= %s", (since,), pluck=True)
+        for n in names:
+            # departments with one desk (buying, HR, payroll, accounts) always use it; sales / production rotate the team
+            u = users[0] if role in ("buying", "hr", "payroll", "accounts") else ctx.rnd.choice(users)
+            frappe.db.sql(f"update `tab{dt}` set owner = %s, modified_by = %s where name = %s", (u, u, n))
+            frappe.db.sql("""update `tabVersion` set owner = %s, modified_by = %s where ref_doctype = %s and docname = %s
+                and owner = 'Administrator'""", (u, u, dt, n))
+    frappe.db.commit()
+
+
+class as_approver:
+    """Run approvals as the director (falls back to the current user when that user doesn't exist)."""
+    def __enter__(self):
+        from micromax.demo_notify import DIRECTOR
+        self.prev = frappe.session.user
+        if frappe.db.get_value("User", DIRECTOR, "enabled"):
+            frappe.set_user(DIRECTOR)
+        return self
+
+    def __exit__(self, *exc):
+        frappe.set_user(self.prev)
+        return False
 
 
 # ============================================================================ attendance with check-ins
@@ -552,9 +619,111 @@ def seed_hr(company=None, days=7, template="spinning_mill"):
     return ctx.counts
 
 
+LOAN_PURPOSES = ["House repair", "Medical treatment", "Children's school fees", "Marriage in the family", "Motorbike purchase",
+                 "Hajj / Umrah", "Shifting to a new house"]
+
+
+def daily_loans(ctx, day):
+    """Working day: now and then an employee requests a salary loan (usually within policy, with a guarantor; once in a
+    while over the limit). Earlier requests are decided through the approvals inbox path: eligible ones approved and paid
+    out (instalments start next month), the rest rejected. Requests are assigned to the approvers (to-do + bell)."""
+    import math
+
+    from mm_core.approvals import act
+    from mm_core.loans import check_eligibility, fix_advance_account
+    from micromax.demo_notify import assign
+
+    if not frappe.get_meta("Employee Advance").has_field("mm_is_loan"):
+        return
+    rnd, c = ctx.rnd, ctx.company
+    acc = frappe.db.get_value("Company", c, "default_employee_advance_account")
+    if acc and frappe.db.get_value("Account", acc, "account_type") != "Receivable":
+        fix_advance_account(c)
+    if not acc or frappe.db.get_value("Account", acc, "account_type") != "Receivable":
+        return
+
+    # 1. decide earlier requests
+    for name in frappe.get_all("Employee Advance", {"company": c, "mm_is_loan": 1, "docstatus": 0, "posting_date": ["<", day]}, pluck="name"):
+        if rnd.random() > 0.6:
+            continue
+        d = frappe.db.get_value("Employee Advance", name, ["employee", "advance_amount", "mm_installment_months", "mm_guarantor"], as_dict=True)
+        ok = check_eligibility(d.employee, d.advance_amount, d.mm_installment_months, d.mm_guarantor, exclude=name)["eligible"]
+        try:
+            if ok and rnd.random() < 0.92:
+                with as_approver():
+                    act("Employee Advance", name, "Approve")
+                _pay_loan(ctx, name, day)
+                ctx.bump("Loan approved & paid")
+            else:
+                with as_approver():
+                    act("Employee Advance", name, "Reject")
+                ctx.bump("Loan rejected")
+            frappe.db.commit()
+        except Exception as ex:
+            frappe.db.rollback()
+            ctx.log(f"  ! loan {name}: {str(ex)[:160]}")
+
+    # 2. a new request
+    if rnd.random() > 0.45:
+        return
+    staff = frappe.get_all("Employee", {"company": c, "status": "Active", "employment_type": "Full-time",
+                                         "name": ["in", list(ctx.employees) or [""]]}, pluck="name")
+    rnd.shuffle(staff)
+    base_keys = {"active", "type", "service", "salary", "open_loans", "history"}
+    for emp in staff[:8]:
+        r0 = check_eligibility(emp)
+        if not all(ch["ok"] for ch in r0["checks"] if ch["key"] in base_keys) or r0["limits"]["eligible_amount"] < 20000:
+            continue
+        lim = r0["limits"]
+        over = rnd.random() < 0.2
+        if over:
+            amount = math.ceil(lim["eligible_amount"] * rnd.uniform(1.4, 2.0) / 5000) * 5000
+            months = lim["max_months"]
+        else:
+            amount = max(10000, round(lim["eligible_amount"] * rnd.uniform(0.3, 0.9) / 5000) * 5000)
+            least = math.ceil(amount / max(1, lim["max_installment"]))
+            months = min(lim["max_months"], max(least, rnd.randint(3, lim["max_months"])))
+        guarantor = None
+        for g in [x for x in staff if x != emp][:15]:
+            r = check_eligibility(emp, amount, months, g)
+            if all(ch["ok"] for ch in r["checks"] if ch["key"].startswith("g_")):
+                guarantor = g
+                break
+        try:
+            doc = frappe.get_doc({"doctype": "Employee Advance", "employee": emp, "company": c, "posting_date": day,
+                                  "currency": ctx.currency, "exchange_rate": 1, "advance_amount": amount,
+                                  "purpose": f"Salary loan — {rnd.choice(LOAN_PURPOSES)}", "advance_account": acc,
+                                  "mm_is_loan": 1, "mm_installment_months": months, "mm_guarantor": guarantor})
+            doc.insert(ignore_permissions=True)
+            assign("Employee Advance", doc.name, f"Approve salary loan: {doc.employee_name} · Rs {amount:,.0f} over {months} months",
+                   date=add_days(day, 2), priority="High" if over else "Medium")
+            frappe.db.commit()
+            ctx.bump("Loan request")
+        except Exception as ex:
+            frappe.db.rollback()
+            ctx.log(f"  ! loan request: {str(ex)[:160]}")
+        break
+
+
+def _pay_loan(ctx, name, day):
+    """Pay out an approved loan from the bank; mm_core.loans sets up the instalments on submit of the payment."""
+    from hrms.overrides.employee_payment_entry import get_payment_entry_for_employee
+
+    from micromax import demo_data as dd
+
+    pe = get_payment_entry_for_employee("Employee Advance", name)
+    pe.posting_date, pe.reference_no, pe.reference_date = day, f"LOAN-{name[-5:]}", day
+    pe.cost_center = pe.cost_center or ctx.cost_center
+    dd._fill(ctx, pe)
+    pe.flags.ignore_permissions = True
+    pe.insert()
+    pe.submit()
+
+
 def _decide(ctx, act, doctype, name, approve):
     try:
-        act(doctype, name, "Approve" if approve else "Reject")
+        with as_approver():
+            act(doctype, name, "Approve" if approve else "Reject")
         frappe.db.set_value("ToDo", {"reference_type": doctype, "reference_name": name, "status": "Open"}, "status", "Closed")
         frappe.db.commit()
         ctx.bump(f"{doctype} {'approved' if approve else 'rejected'}")
