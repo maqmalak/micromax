@@ -86,6 +86,10 @@ def _run(dd, company, upto, template, origin, start):
     ctx = dd.prepare(company, st["origin"], upto, seed=f"{company}|{upto}", template=template)
     ctx.t.setdefault("planning", {})["open_tail_days"] = 0     # daily: no artificial "still on the floor" tail
     _stores_masters(ctx)
+    from micromax import demo_projects
+
+    if not frappe.db.exists("Project", {"company": company, "notes": ["like", f"%{demo_projects.TAG}%"]}):
+        demo_projects.generate(company)               # the five demo projects, once
     ctx.unplanned = list(st.get("unplanned", []))
     ctx.so_mill.update(st.get("so_mill", {}))
     ctx.wo_mill.update(st.get("wo_mill", {}))
@@ -114,7 +118,7 @@ def _run(dd, company, upto, template, origin, start):
 
 # ============================================================================ one day
 def _one_day(dd, ctx, day, queue):
-    from micromax import demo_modules
+    from micromax import demo_modules, demo_projects
 
     ctx.end = day
     ctx.rnd = random.Random(f"{ctx.company}|{day}")
@@ -145,6 +149,7 @@ def _one_day(dd, ctx, day, queue):
     if working:
         at(day, 9.3, daily_hr_requests, day)          # leave requests / expense claims for the approvals inbox
     at(day, 9.4, daily_attendance, day)
+    at(day, 9.6, demo_projects.daily, day)            # running projects move on (tasks start / progress / finish)
     if add_days(day, 1).month != day.month:
         at(day, 8.5, dd._sell_waste, day)
         at(day, 9, dd._month_end_overheads, day)
@@ -459,6 +464,7 @@ def daily_hr_requests(ctx, day):
     """Working day: a few leave requests and expense claims arrive (pending approval); older pending ones are
     decided — mostly approved, some rejected — through the same path as the React approvals inbox."""
     from mm_core.approvals import act
+    from micromax.demo_notify import assign
 
     if not ctx.t.get("hr") or not getattr(ctx, "employees", None):
         return
@@ -490,6 +496,7 @@ def daily_hr_requests(ctx, day):
                                   "posting_date": day, "leave_approver": approver, "description": rnd.choice(LEAVE_REASONS),
                                   "follow_via_email": 0})
             doc.insert(ignore_permissions=True)
+            assign("Leave Application", doc.name, f"Approve leave: {doc.employee_name} · {lt} from {start}", date=add_days(day, 2))
             frappe.db.commit()
             ctx.bump("Leave request")
         except Exception as ex:
@@ -514,6 +521,8 @@ def daily_hr_requests(ctx, day):
             doc = frappe.get_doc({"doctype": "Expense Claim", "employee": e.name, "company": c, "posting_date": day,
                                   "expense_approver": approver, "payable_account": payable, "expenses": rows})
             doc.insert(ignore_permissions=True)
+            assign("Expense Claim", doc.name, f"Approve expense claim: {doc.employee_name} · Rs {doc.total_claimed_amount:,.0f}",
+                   date=add_days(day, 3))
             frappe.db.commit()
             ctx.bump("Expense claim")
         except Exception as ex:
@@ -546,6 +555,7 @@ def seed_hr(company=None, days=7, template="spinning_mill"):
 def _decide(ctx, act, doctype, name, approve):
     try:
         act(doctype, name, "Approve" if approve else "Reject")
+        frappe.db.set_value("ToDo", {"reference_type": doctype, "reference_name": name, "status": "Open"}, "status", "Closed")
         frappe.db.commit()
         ctx.bump(f"{doctype} {'approved' if approve else 'rejected'}")
     except Exception as ex:
