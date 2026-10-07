@@ -233,7 +233,7 @@ DOCTYPE_ROLE = {
     "Payment Entry": "accounts", "Journal Entry": "accounts", "Cheque Book": "accounts",
     "Attendance": "hr", "Employee Checkin": "hr", "Leave Application": "hr", "Expense Claim": "hr", "Employee Advance": "hr",
     "Leave Allocation": "hr", "Task": "production",
-    "Additional Salary": "payroll", "Payroll Entry": "payroll", "Salary Slip": "payroll",
+    "Additional Salary": "payroll", "Payroll Entry": "payroll", "Salary Slip": "payroll", "Overtime Slip": "hr",
 }
 _ROLE_CACHE = {}
 

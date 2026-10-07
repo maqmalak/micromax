@@ -168,6 +168,9 @@ def reset(company, bank_account):
 def run(company, bank_account, from_date, to_date=None):
     frappe.set_user("Administrator")
     frappe.flags.mute_emails = True
+    if not frappe.db.exists("Bank Account", {"name": bank_account, "company": company}):
+        names = frappe.get_all("Bank Account", {"company": company, "is_company_account": 1}, pluck="name")
+        frappe.throw(f"Bank Account {bank_account!r} not found for {company}. Use one of: {', '.join(names) or 'none'}")
     to_date = to_date or nowdate()
     file_url, lines, closing = make_statement(company, bank_account, from_date, to_date)
     bsi, created = import_statement(company, bank_account, file_url)
