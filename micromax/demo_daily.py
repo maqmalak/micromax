@@ -145,6 +145,7 @@ def _one_day(dd, ctx, day, queue):
         at(day, 0, dd._replenish_fibre, day)          # orders only what's short, net of open purchase orders
     if day.day == 1:
         at(day, -1, demo_modules.month_start, day)
+        at(day, -0.5, _month_shifts, day)              # the month's rotating shift assignments (roster)
     if working:
         at(day, 0.5, daily_stores, day)               # consumables issued; reorder -> MR -> PO
     if working:
@@ -186,6 +187,14 @@ def _one_day(dd, ctx, day, queue):
     _stamp_users(ctx, run_start)
     ctx.log(f"{day}: {ctx.counts}")
     return later
+
+
+def _month_shifts(ctx, day):
+    from micromax import demo_shifts
+
+    demo_shifts.locations()
+    n = demo_shifts.assignments(ctx.company, demo_shifts.schedules(ctx.company), day)
+    ctx.bump("Shift Assignment", n)
 
 
 def _catch_up_month(ctx, day):
@@ -232,7 +241,8 @@ DOCTYPE_ROLE = {
     "Quality Inspection": "production", "Non Conformance": "production",
     "Payment Entry": "accounts", "Journal Entry": "accounts", "Cheque Book": "accounts",
     "Attendance": "hr", "Employee Checkin": "hr", "Leave Application": "hr", "Expense Claim": "hr", "Employee Advance": "hr",
-    "Leave Allocation": "hr", "Task": "production",
+    "Leave Allocation": "hr", "Task": "production", "Shift Assignment": "hr", "Shift Schedule Assignment": "hr",
+    "Shift Request": "hr", "Shift Schedule": "hr",
     "Additional Salary": "payroll", "Payroll Entry": "payroll", "Salary Slip": "payroll", "Overtime Slip": "hr",
 }
 _ROLE_CACHE = {}
@@ -357,9 +367,13 @@ def daily_attendance(ctx, day):
         late, early = int(in_off > grace_in), int(out_off < -grace_out)
         att.append((att_name, e, status, None, shift, t_in, t_out, hours, late, early))
         device = rnd.choice(["Gate-1", "Gate-2", "Mill-Gate"])
+        from micromax.demo_shifts import DEVICE_LOCATION, LOCATIONS
+
+        g_lat, g_lng, _r = LOCATIONS[DEVICE_LOCATION[device]]
         for log_type, t in (("IN", t_in), ("OUT", t_out)):
             chk.append((f"EMP-CKIN-MMD-{frappe.generate_hash(length=10)}", e.name, e.employee_name, log_type, t, shift,
-                        device, att_name, 1, start, end, ts, ts, "Administrator", "Administrator"))
+                        device, att_name, 1, start, end, ts, ts, "Administrator", "Administrator",
+                        round(g_lat + (rnd.random() - 0.5) * 0.0008, 6), round(g_lng + (rnd.random() - 0.5) * 0.0008, 6)))
 
     has_hd = frappe.get_meta("Attendance").has_field("half_day_status")
     fields = ["name", "naming_series", "employee", "employee_name", "status", "attendance_date", "company",
@@ -378,7 +392,8 @@ def daily_attendance(ctx, day):
     if chk:
         frappe.db.bulk_insert("Employee Checkin", ["name", "employee", "employee_name", "log_type", "time", "shift",
                                                    "device_id", "attendance", "skip_auto_attendance", "shift_start",
-                                                   "shift_end", "creation", "modified", "owner", "modified_by"], chk)
+                                                   "shift_end", "creation", "modified", "owner", "modified_by",
+                                                   "latitude", "longitude"], chk)
         ctx.bump("Employee Checkin", len(chk))
     for k, label in ((lambda a: a[8], "Late entries"), (lambda a: a[9], "Early exits"), (lambda a: a[2] == "Half Day", "Half days")):
         n = sum(1 for a in att if k(a))
