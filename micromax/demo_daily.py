@@ -173,6 +173,16 @@ def _one_day(dd, ctx, day, queue):
             frappe.db.rollback()
             ctx.log(f"  ! {day} {fn.__name__}: {str(e)[:220]}")
             ctx.bump("errors")
+    try:                                                # new bank payments take the next cheque leaf
+        from micromax import demo_cheques
+
+        demo_cheques.issue_for_new_payments(ctx, run_start)
+        if day == getdate(nowdate()):                # the bank has processed last week's entries
+            demo_cheques.clear_bank_entries(ctx.company, quiet=True)
+        frappe.db.commit()
+    except Exception as e:
+        frappe.db.rollback()
+        ctx.log(f"  ! cheques: {str(e)[:160]}")
     _stamp_users(ctx, run_start)
     ctx.log(f"{day}: {ctx.counts}")
     return later
@@ -220,7 +230,7 @@ DOCTYPE_ROLE = {
     "Import Shipment": "buying", "Landed Cost Voucher": "buying",
     "Production Plan": "production", "Work Order": "production", "Job Card": "production", "Stock Entry": "production",
     "Quality Inspection": "production", "Non Conformance": "production",
-    "Payment Entry": "accounts", "Journal Entry": "accounts",
+    "Payment Entry": "accounts", "Journal Entry": "accounts", "Cheque Book": "accounts",
     "Attendance": "hr", "Employee Checkin": "hr", "Leave Application": "hr", "Expense Claim": "hr", "Employee Advance": "hr",
     "Leave Allocation": "hr", "Task": "production",
     "Additional Salary": "payroll", "Payroll Entry": "payroll", "Salary Slip": "payroll",
