@@ -1278,6 +1278,9 @@ def _invoice_lag(ctx):
 def _invoice(ctx, dn_name, so_name):
     from erpnext.stock.doctype.delivery_note.delivery_note import make_sales_invoice
     rnd = ctx.rnd
+    if frappe.db.get_value("Sales Order", so_name, "status") == "Closed":   # closed meanwhile: ERPNext won't invoice it
+        ctx.bump("Invoice skipped (order closed)")
+        return
     si = make_sales_invoice(dn_name)
     si.due_date = add_days(ctx._current_day, 30)
     _submit(ctx, si, ctx._current_day)
