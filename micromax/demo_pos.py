@@ -253,8 +253,10 @@ def sell(company, sales=12, seed=None):
 
 # ------------------------------------------------------------------ restaurant menu (items, prices, photos)
 MENU_FILE = "demo_pos_menu.json"
-# items replaced by a single per-Kg item (Chicken Chargha) — disabled, not deleted, so past sales keep them
+# items replaced by a single per-Kg item (Chicken Chargha). Kept ENABLED (a shift that sold them must still consolidate into
+# a Sales Invoice — ERPNext rejects disabled items) but moved to a group no counter lists, so the terminal no longer shows them.
 RETIRED = ("Chargha Full", "Chargha Half", "Chargha Quarter")
+RETIRED_GROUP = "POS Retired"
 MENU_ASSETS = ("demo_assets", "pos_menu")
 
 
@@ -329,10 +331,13 @@ def menu(company, profile=None):
         if r.get("image") and (not image or image.endswith(".svg") or ours_outdated):
             photos += _attach_photo(code, r["image"], r.get("credit"), r["item_name"])
         frappe.db.commit()
+    if not frappe.db.exists("Item Group", RETIRED_GROUP):
+        _menu_group("POS Products")
+        frappe.get_doc({"doctype": "Item Group", "item_group_name": RETIRED_GROUP, "parent_item_group": "POS Products", "is_group": 0}).insert(ignore_permissions=True)
     for old in RETIRED:
         code = frappe.db.get_value("Item", {"item_name": old}, "name")
         if code:
-            frappe.db.set_value("Item", code, "disabled", 1)
+            frappe.db.set_value("Item", code, {"disabled": 0, "item_group": RETIRED_GROUP})
     if frappe.db.exists("POS Profile", profile):
         doc = frappe.get_doc("POS Profile", profile)
         have = {g.item_group for g in doc.get("item_groups") or []}
