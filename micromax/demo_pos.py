@@ -3,6 +3,10 @@
     bench --site <site> execute micromax.demo_pos.setup --kwargs "{'company': '...'}"
     bench --site <site> execute micromax.demo_pos.sell --kwargs "{'company': '...', 'sales': 12}"   # one shift of sales
 
+menu: the restaurant menu — Handi, BBQ, add-on, Fish, Beverages, Breakfast — with prices and photos (bundled in
+micromax/demo_assets/pos_menu, listed in micromax/demo_pos_menu.json), added to the counter's item groups:
+    bench --site <site> execute micromax.demo_pos.menu --kwargs "{'company': '...'}"
+
 setup: Bank mode of payment account, a "Factory Outlet" warehouse stocked from the yarn / waste stores, the POS
 Profile (credit sales and a small write-off allowed), and POS-Awesome-style offers: a bulk-yarn discount, a coupon
 (OUTLET10) and an "Outlet Rewards" loyalty program. sell: opens a shift, rings up sales (cash / card, some with discounts, one held, one returned) through
@@ -97,6 +101,7 @@ def setup(company):
         p.insert(ignore_permissions=True, set_name=name)
     frappe.db.set_value("POS Profile", name, {"allow_partial_payment": 1, "write_off_limit": 10})
     _tax_and_tenders(company, name)
+    menu(company, name)
     _offers(company, abbr)
     frappe.db.commit()
     print(f"POS profile {name} on {wh}")
@@ -242,3 +247,85 @@ def sell(company, sales=12, seed=None):
     print("SUMMARY", {k: summary[k] for k in ("invoices", "returns", "total")}, summary["modes"])
     print("CLOSING", closing)
     return done
+
+
+# ------------------------------------------------------------------ restaurant menu (items, prices, photos)
+MENU_FILE = "demo_pos_menu.json"
+MENU_ASSETS = ("demo_assets", "pos_menu")
+
+
+def _menu_group(group):
+    """Item group under "POS Products" (both created when missing; an existing group is left where it is)."""
+    root = frappe.db.get_value("Item Group", {"is_group": 1, "parent_item_group": ["in", ["", None]]}, "name") or "All Item Groups"
+    if not frappe.db.exists("Item Group", "POS Products"):
+        frappe.get_doc({"doctype": "Item Group", "item_group_name": "POS Products", "parent_item_group": root, "is_group": 1}).insert(ignore_permissions=True)
+    if not frappe.db.exists("Item Group", group):
+        frappe.get_doc({"doctype": "Item Group", "item_group_name": group, "parent_item_group": "POS Products", "is_group": 0}).insert(ignore_permissions=True)
+
+
+def _attach_photo(item_code, fname, credit, label):
+    import os
+
+    path = os.path.join(frappe.get_app_path("micromax"), *MENU_ASSETS, fname)
+    if not os.path.exists(path):
+        return False
+    with open(path, "rb") as f:
+        content = f.read()
+    for old in frappe.get_all("File", {"attached_to_doctype": "Item", "attached_to_name": item_code, "attached_to_field": "image"}, pluck="name"):
+        frappe.delete_doc("File", old, ignore_permissions=True)
+    doc = frappe.get_doc({"doctype": "File", "file_name": f"menu-{fname}", "content": content, "is_private": 0,
+                          "attached_to_doctype": "Item", "attached_to_name": item_code, "attached_to_field": "image"}).insert(ignore_permissions=True)
+    note = f"Photo via Wikimedia Commons — {credit} (see the file page for author and licence)" if credit else ""
+    frappe.db.set_value("Item", item_code, {"image": doc.file_url,
+                                            "description": f"{label}<br><small>{frappe.utils.escape_html(note)}</small>" if note else label})
+    return True
+
+
+def menu(company, profile=None):
+    """Create / complete the restaurant menu and add its groups to the counter. Safe to re-run: existing items (matched by
+    name) are reused, existing prices are kept, and only items without a real photo get one."""
+    import json
+    import os
+
+    frappe.set_user("Administrator")
+    abbr = frappe.db.get_value("Company", company, "abbr")
+    profile = profile or PROFILE.format(abbr=abbr)
+    with open(os.path.join(frappe.get_app_path("micromax"), MENU_FILE), encoding="utf-8") as f:
+        rows = json.load(f)
+    has_presets = frappe.get_meta("Item").has_field("mm_pos_default_qty")
+    made = priced = photos = 0
+    groups = []
+    for r in rows:
+        if r["group"] not in groups:
+            _menu_group(r["group"])
+            groups.append(r["group"])
+        if not frappe.db.exists("UOM", r["uom"]):
+            frappe.get_doc({"doctype": "UOM", "uom_name": r["uom"], "must_be_whole_number": 0}).insert(ignore_permissions=True)
+        code = frappe.db.get_value("Item", {"item_name": r["item_name"]}, "name")
+        if not code:
+            code = r["item_name"] if not frappe.db.exists("Item", r["item_name"]) else f"{r['item_name']} ({r['group']})"
+            frappe.get_doc({"doctype": "Item", "item_code": code, "item_name": r["item_name"], "item_group": r["group"], "stock_uom": r["uom"],
+                            "is_stock_item": 0, "is_sales_item": 1, "include_item_in_manufacturing": 0,
+                            "description": r["item_name"]}).insert(ignore_permissions=True)
+            made += 1
+        if has_presets and (r.get("default_qty") or r.get("qty_options")):
+            frappe.db.set_value("Item", code, {"mm_pos_default_qty": r.get("default_qty") or 0, "mm_pos_qty_options": r.get("qty_options") or ""})
+        if r.get("rate") and not frappe.db.exists("Item Price", {"item_code": code, "price_list": "Standard Selling"}):
+            frappe.get_doc({"doctype": "Item Price", "item_code": code, "price_list": "Standard Selling", "price_list_rate": r["rate"],
+                            "uom": r["uom"]}).insert(ignore_permissions=True)
+            priced += 1
+        image = frappe.db.get_value("Item", code, "image") or ""
+        if r.get("image") and (not image or image.endswith(".svg")):
+            photos += _attach_photo(code, r["image"], r.get("credit"), r["item_name"])
+        frappe.db.commit()
+    if frappe.db.exists("POS Profile", profile):
+        doc = frappe.get_doc("POS Profile", profile)
+        have = {g.item_group for g in doc.get("item_groups") or []}
+        if have:                                           # an empty list already means "all groups"
+            for g in groups:
+                if g not in have:
+                    doc.append("item_groups", {"item_group": g})
+            doc.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(f"Menu: {len(rows)} items in {len(groups)} groups — {made} created, {priced} priced, {photos} photos" + (f"; on {profile}" if frappe.db.exists("POS Profile", profile) else ""))
+    return {"items": len(rows), "created": made, "priced": priced, "photos": photos}

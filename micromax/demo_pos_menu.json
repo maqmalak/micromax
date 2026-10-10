@@ -1,0 +1,692 @@
+[
+ {
+  "group": "Handi",
+  "item_name": "Dall Chana",
+  "uom": "Nos",
+  "rate": 350.0,
+  "image": "dall_chana.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chana_Dal_Curry.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Dall Monghi",
+  "uom": "Nos",
+  "rate": 350.0,
+  "image": "dall_monghi.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Moong_Dal_Palak.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Chanay White",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "chanay_white.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Choleindia.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Chanay Black",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "chanay_black.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:DRY_KALA_CHANA_MASALA.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Sabzi",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "sabzi.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Baigan_ka_Bharta.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Chicken Karahi",
+  "uom": "Nos",
+  "rate": 1200.0,
+  "image": "chicken_karahi.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Punjabi_Chicken_Karahi.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Chicken Korma",
+  "uom": "Nos",
+  "rate": 900.0,
+  "image": "chicken_korma.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chicken_Korma.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Handi",
+  "item_name": "Roti",
+  "uom": "Nos",
+  "rate": 30.0,
+  "image": "roti.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chapati2.JPG",
+  "default_qty": 2.0,
+  "qty_options": "4,5,6,7,8,9,10,15,20"
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chicken Tikka",
+  "uom": "Nos",
+  "rate": 450.0,
+  "image": "chicken_tikka.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chicken_Tikka.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chicken Malai Boti",
+  "uom": "Nos",
+  "rate": 550.0,
+  "image": "chicken_malai_boti.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chicken_Tikka_Kebab.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chicken Seekh Kabab",
+  "uom": "Nos",
+  "rate": 400.0,
+  "image": "chicken_seekh_kabab.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Mutton_Seekh_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Beef Seekh Kabab",
+  "uom": "Nos",
+  "rate": 450.0,
+  "image": "beef_seekh_kabab.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Pakistani_Food_Beef_Kabobs.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Beef Bihari Boti",
+  "uom": "Nos",
+  "rate": 650.0,
+  "image": "beef_bihari_boti.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Barbecued_lamb_sticks.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Reshmi Kabab",
+  "uom": "Nos",
+  "rate": 500.0,
+  "image": "reshmi_kabab.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Rkcmalai.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chicken Wings BBQ",
+  "uom": "Nos",
+  "rate": 500.0,
+  "image": "chicken_wings_bbq.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Skewer_with_marinated_chicken_wings_bbq_barbeque.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Mutton Chops",
+  "uom": "Nos",
+  "rate": 1500.0,
+  "image": "mutton_chops.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Lamb_chops_2014-03-06_12-39.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chicken Leg Piece",
+  "uom": "Nos",
+  "rate": 400.0,
+  "image": "chicken_leg_piece.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:A_piece_of_a_tandoori_chicken.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chicken Chest Piece",
+  "uom": "Nos",
+  "rate": 450.0,
+  "image": "chicken_chest_piece.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Grilled_Tandoori_chicken.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chargha Full",
+  "uom": "Nos",
+  "rate": 1600.0,
+  "image": "chargha_full.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Tandoori_Chicken_-_Dhaka_2015-05-31_2740.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chargha Half",
+  "uom": "Nos",
+  "rate": 850.0,
+  "image": "chargha_half.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chickentandoori.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "BBQ",
+  "item_name": "Chargha Quarter",
+  "uom": "Nos",
+  "rate": 450.0,
+  "image": "chargha_quarter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Tandoori.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "French Fries",
+  "uom": "Nos",
+  "rate": 200.0,
+  "image": "french_fries.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:French_Fries.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "Garlic Bread",
+  "uom": "Nos",
+  "rate": 220.0,
+  "image": "garlic_bread.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Butter_Garlic_Naan.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "Coleslaw",
+  "uom": "Nos",
+  "rate": 150.0,
+  "image": "coleslaw.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:CabbageSalad.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "Onion Rings",
+  "uom": "Nos",
+  "rate": 220.0,
+  "image": "onion_rings.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:OnionRings.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "Extra Cheese",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "extra_cheese.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Somerset-Cheddar.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "Raita",
+  "uom": "Nos",
+  "rate": 80.0,
+  "image": "raita.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Cucumber-raita.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "add-on",
+  "item_name": "Salad",
+  "uom": "Nos",
+  "rate": 80.0,
+  "image": "salad.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Kachumber_Salad.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Fry Fish - Rahu",
+  "uom": "Kg",
+  "rate": 1800.0,
+  "image": "fry_fish_rahu.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Fried_Rohu_in_Bangladesh.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Fry Fish - Damra",
+  "uom": "Kg",
+  "rate": 1600.0,
+  "image": "fry_fish_damra.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:ইলিশ_মাছ_ভাজা_ও_ভাত.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Fry Fish - Singhara",
+  "uom": "Kg",
+  "rate": 2400.0,
+  "image": "fry_fish_singhara.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Pomfret_fry_MA01.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Fry Fish - Mori",
+  "uom": "Kg",
+  "rate": 1800.0,
+  "image": "fry_fish_mori.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:MACHHA_HALADI.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Fry Fish - Thaila",
+  "uom": "Kg",
+  "rate": 2000.0,
+  "image": "fry_fish_thaila.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Gurame_Goreng_Kipas_3.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Fry Fish - Malli",
+  "uom": "Kg",
+  "rate": 2200.0,
+  "image": "fry_fish_malli.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Fried_Fish_and_French_Fries.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Fish",
+  "item_name": "Grilled Fish",
+  "uom": "Kg",
+  "rate": 2200.0,
+  "image": "grilled_fish.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Ikan_Bakar_1.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Fresh Orange Juice",
+  "uom": "Nos",
+  "rate": 200.0,
+  "image": "fresh_orange_juice.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Orangejuice.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Cappuccino",
+  "uom": "Nos",
+  "rate": 250.0,
+  "image": "cappuccino.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Cappuccino_in_original.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Iced Latte",
+  "uom": "Nos",
+  "rate": 280.0,
+  "image": "iced_latte.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Iced_latte.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Mint Lemonade",
+  "uom": "Nos",
+  "rate": 180.0,
+  "image": "mint_lemonade.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Mint_lemonade.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Coke Regular",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "coke_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Coca_Cola_Flasche_-_Original_Taste.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Coke Half Liter",
+  "uom": "Nos",
+  "rate": 150.0,
+  "image": "coke_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Coca_Cola_Flasche_-_Original_Taste.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Coke 1 Liter",
+  "uom": "Nos",
+  "rate": 220.0,
+  "image": "coke_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Coca_Cola_Flasche_-_Original_Taste.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Coke 1.5 Liter",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "coke_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Coca_Cola_Flasche_-_Original_Taste.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Coke 2 Liter",
+  "uom": "Nos",
+  "rate": 350.0,
+  "image": "coke_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Coca_Cola_Flasche_-_Original_Taste.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Sprite Regular",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "sprite_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Sprite_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Sprite Half Liter",
+  "uom": "Nos",
+  "rate": 150.0,
+  "image": "sprite_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Sprite_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Sprite 1 Liter",
+  "uom": "Nos",
+  "rate": 220.0,
+  "image": "sprite_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Sprite_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Sprite 1.5 Liter",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "sprite_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Sprite_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Sprite 2 Liter",
+  "uom": "Nos",
+  "rate": 350.0,
+  "image": "sprite_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Sprite_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Pepsi Regular",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "pepsi_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Classic_Pepsi_bottles_in_supermarket_in_Kyiv.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Pepsi Half Liter",
+  "uom": "Nos",
+  "rate": 150.0,
+  "image": "pepsi_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Pepsi_355_ml,_591_ml,_and_710_ml,_Canada_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Pepsi 1 Liter",
+  "uom": "Nos",
+  "rate": 220.0,
+  "image": "pepsi_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Pepsi_355_ml,_591_ml,_and_710_ml,_Canada_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Pepsi 1.5 Liter",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "pepsi_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Pepsi_355_ml,_591_ml,_and_710_ml,_Canada_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Pepsi 2 Liter",
+  "uom": "Nos",
+  "rate": 350.0,
+  "image": "pepsi_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Pepsi_355_ml,_591_ml,_and_710_ml,_Canada_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Next Regular",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "next_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Next Half Liter",
+  "uom": "Nos",
+  "rate": 150.0,
+  "image": "next_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Next 1 Liter",
+  "uom": "Nos",
+  "rate": 220.0,
+  "image": "next_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Next 1.5 Liter",
+  "uom": "Nos",
+  "rate": 300.0,
+  "image": "next_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Next 2 Liter",
+  "uom": "Nos",
+  "rate": 350.0,
+  "image": "next_regular.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Mineral Water Half Liter",
+  "uom": "Nos",
+  "rate": 70.0,
+  "image": "mineral_water_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Water_bottle_11-26-2025.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Mineral Water 1 Liter",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "mineral_water_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Water_bottle_11-26-2025.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Mineral Water 1.5 Liter",
+  "uom": "Nos",
+  "rate": 130.0,
+  "image": "mineral_water_half_liter.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Water_bottle_11-26-2025.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Beverages",
+  "item_name": "Tea (Milk)",
+  "uom": "Nos",
+  "rate": 100.0,
+  "image": "tea_milk.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chai_In_Sakora.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Breakfast",
+  "item_name": "Paratha Sada",
+  "uom": "Nos",
+  "rate": 60.0,
+  "image": "paratha_sada.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Triangle_paratha_",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Breakfast",
+  "item_name": "Paratha Aloo Wala",
+  "uom": "Nos",
+  "rate": 150.0,
+  "image": "paratha_aloo_wala.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Paratharoti.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Breakfast",
+  "item_name": "Paratha Chicken",
+  "uom": "Nos",
+  "rate": 250.0,
+  "image": "paratha_chicken.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Mughlai_Kheema_Paratha.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Breakfast",
+  "item_name": "Halwa Puri",
+  "uom": "Nos",
+  "rate": 250.0,
+  "image": "halwa_puri.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Halwa_Puri,_a_traditional_food_made_in_Walled_City_of_Lahore.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Breakfast",
+  "item_name": "Paye",
+  "uom": "Nos",
+  "rate": 450.0,
+  "image": "paye.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Paya_Curry.JPG",
+  "default_qty": 0.0,
+  "qty_options": ""
+ },
+ {
+  "group": "Breakfast",
+  "item_name": "Nihari",
+  "uom": "Nos",
+  "rate": 500.0,
+  "image": "nihari.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Beef_Nihari,_made_by_Saleha_Atif,_Pakistan.jpg",
+  "default_qty": 0.0,
+  "qty_options": ""
+ }
+]
