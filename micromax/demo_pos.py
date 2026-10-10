@@ -18,6 +18,28 @@ from frappe.utils import flt
 PROFILE = "{abbr} Factory Outlet"
 
 
+def _leaf(doctype, *preferred):
+    """A non-group record of a tree doctype (Customer Group / Territory): the first preferred one that is a leaf, else any leaf;
+    creates one under the root if the tree has none."""
+    for name in preferred:
+        if name and frappe.db.get_value(doctype, name, "is_group") == 0:
+            return name
+    leaf = frappe.db.get_value(doctype, {"is_group": 0}, "name", order_by="lft")
+    if leaf:
+        return leaf
+    field = "customer_group_name" if doctype == "Customer Group" else "territory_name"
+    parent_field = "parent_customer_group" if doctype == "Customer Group" else "parent_territory"
+    root = frappe.db.get_value(doctype, {"is_group": 1, parent_field: ["in", ["", None]]}, "name")
+    new = "Individual" if doctype == "Customer Group" else "Pakistan"
+    frappe.get_doc({"doctype": doctype, field: new, parent_field: root, "is_group": 0}).insert(ignore_permissions=True)
+    return new
+
+
+def _cost_center(company):
+    return (frappe.db.get_value("Company", company, "cost_center")
+            or frappe.db.get_value("Cost Center", {"company": company, "is_group": 0, "disabled": 0}, "name", order_by="lft"))
+
+
 def _company_account(company, kind):
     """The company's default Cash / Bank account, else its first ledger of that account type."""
     field = "default_cash_account" if kind == "Cash" else "default_bank_account"
@@ -47,8 +69,9 @@ def setup(company):
         frappe.throw(f"{company} has no Cash account — set Company → Default Cash Account first.")
     if not frappe.db.exists("Customer", "Walk-in Customer"):
         frappe.get_doc({"doctype": "Customer", "customer_name": "Walk-in Customer", "customer_type": "Individual",
-                        "customer_group": frappe.db.get_single_value("Selling Settings", "customer_group") or "All Customer Groups",
-                        "territory": frappe.db.get_single_value("Selling Settings", "territory") or "All Territories"}).insert(ignore_permissions=True)
+                        "customer_group": _leaf("Customer Group", frappe.db.get_single_value("Selling Settings", "customer_group"), "Individual", "Commercial"),
+                        "territory": _leaf("Territory", frappe.db.get_single_value("Selling Settings", "territory"), "Pakistan", "Rest Of The World")}
+                       ).insert(ignore_permissions=True)
     wh = f"Factory Outlet - {abbr}"
     if not frappe.db.exists("Warehouse", wh):
         parent = frappe.db.get_value("Warehouse", {"company": company, "is_group": 1, "parent_warehouse": ["in", ["", None]]}, "name")
@@ -59,7 +82,7 @@ def setup(company):
     if not frappe.db.exists("POS Profile", name):
         cash = frappe.db.get_value("Mode of Payment Account", {"parent": "Cash", "company": company}, "default_account")
         tenders = [{"mode_of_payment": "Cash", "default": 1}] + [{"mode_of_payment": m, "default": 0} for m in ("Bank",) if usable[m]]
-        cc = frappe.db.get_value("Company", company, "cost_center")
+        cc = _cost_center(company)
         p = frappe.get_doc({
             "doctype": "POS Profile", "__newname": name, "company": company, "warehouse": wh, "currency": "PKR",
             "selling_price_list": "Standard Selling", "customer": "Walk-in Customer", "update_stock": 1,
@@ -112,7 +135,9 @@ def _tax_and_tenders(company, profile):
 def _offers(company, abbr):
     """Bulk-yarn discount (automatic), a coupon-based 10% off, and a loyalty program the outlet's customers join."""
     today = frappe.utils.nowdate()
-    if not frappe.db.exists("Pricing Rule", {"title": "Outlet — 5% off 50 kg+ yarn"}):
+    if not frappe.db.exists("Item Group", "Spun Yarn"):
+        print("No 'Spun Yarn' item group — skipping the demo offers and coupon")
+    elif not frappe.db.exists("Pricing Rule", {"title": "Outlet — 5% off 50 kg+ yarn"}):
         frappe.get_doc({"doctype": "Pricing Rule", "title": "Outlet — 5% off 50 kg+ yarn", "apply_on": "Item Group",
                         "item_groups": [{"item_group": "Spun Yarn"}], "selling": 1, "company": company, "min_qty": 50,
                         "price_or_product_discount": "Price", "rate_or_discount": "Discount Percentage", "discount_percentage": 5,
@@ -138,9 +163,12 @@ def _offers(company, abbr):
                                                    "account_name": ["like", "%Marketing%"]}, "name")
                    or frappe.db.get_value("Account", {"company": company, "is_group": 0, "root_type": "Expense",
                                                       "account_type": ["in", ["", None]]}, "name"))
+        if not expense or not _cost_center(company):
+            print("No expense account / cost center — skipping the loyalty program")
+            return
         frappe.get_doc({"doctype": "Loyalty Program", "loyalty_program_name": lp, "loyalty_program_type": "Single Tier Program",
                         "company": company, "from_date": today, "auto_opt_in": 1, "conversion_factor": 1, "expiry_duration": 365,
-                        "expense_account": expense, "cost_center": frappe.db.get_value("Company", company, "cost_center"),
+                        "expense_account": expense, "cost_center": _cost_center(company),
                         "collection_rules": [{"tier_name": "Outlet", "min_spent": 0, "collection_factor": 100}]}
                        ).insert(ignore_permissions=True)
     # the outlet's regulars (not the walk-in customer) collect points
