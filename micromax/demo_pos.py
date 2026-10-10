@@ -18,14 +18,37 @@ from frappe.utils import flt
 PROFILE = "{abbr} Factory Outlet"
 
 
+def _company_account(company, kind):
+    """The company's default Cash / Bank account, else its first ledger of that account type."""
+    field = "default_cash_account" if kind == "Cash" else "default_bank_account"
+    return (frappe.db.get_value("Company", company, field)
+            or frappe.db.get_value("Account", {"company": company, "account_type": kind, "is_group": 0, "disabled": 0}, "name"))
+
+
+def _ensure_mode(name, kind, company):
+    """Mode of Payment `name` (type Cash / Bank) exists and points at a company account. Returns True when usable."""
+    account = _company_account(company, "Cash" if kind == "Cash" else "Bank")
+    if not frappe.db.exists("Mode of Payment", name):
+        frappe.get_doc({"doctype": "Mode of Payment", "mode_of_payment": name, "type": kind, "enabled": 1}).insert(ignore_permissions=True)
+    if not frappe.db.exists("Mode of Payment Account", {"parent": name, "company": company}):
+        if not account:
+            return False
+        mop = frappe.get_doc("Mode of Payment", name)
+        mop.append("accounts", {"company": company, "default_account": account})
+        mop.save(ignore_permissions=True)
+    return True
+
+
 def setup(company):
     frappe.set_user("Administrator")
     abbr = frappe.db.get_value("Company", company, "abbr")
-    bank = frappe.db.get_value("Company", company, "default_bank_account")
-    if bank and not frappe.db.exists("Mode of Payment Account", {"parent": "Bank", "company": company}):
-        mop = frappe.get_doc("Mode of Payment", "Bank")
-        mop.append("accounts", {"company": company, "default_account": bank})
-        mop.save(ignore_permissions=True)
+    usable = {m: _ensure_mode(m, k, company) for m, k in (("Cash", "Cash"), ("Bank", "Bank"), ("Credit Card", "Bank"))}
+    if not usable["Cash"]:
+        frappe.throw(f"{company} has no Cash account — set Company → Default Cash Account first.")
+    if not frappe.db.exists("Customer", "Walk-in Customer"):
+        frappe.get_doc({"doctype": "Customer", "customer_name": "Walk-in Customer", "customer_type": "Individual",
+                        "customer_group": frappe.db.get_single_value("Selling Settings", "customer_group") or "All Customer Groups",
+                        "territory": frappe.db.get_single_value("Selling Settings", "territory") or "All Territories"}).insert(ignore_permissions=True)
     wh = f"Factory Outlet - {abbr}"
     if not frappe.db.exists("Warehouse", wh):
         parent = frappe.db.get_value("Warehouse", {"company": company, "is_group": 1, "parent_warehouse": ["in", ["", None]]}, "name")
@@ -35,13 +58,15 @@ def setup(company):
     name = PROFILE.format(abbr=abbr)
     if not frappe.db.exists("POS Profile", name):
         cash = frappe.db.get_value("Mode of Payment Account", {"parent": "Cash", "company": company}, "default_account")
+        tenders = [{"mode_of_payment": "Cash", "default": 1}] + [{"mode_of_payment": m, "default": 0} for m in ("Bank",) if usable[m]]
         cc = frappe.db.get_value("Company", company, "cost_center")
         p = frappe.get_doc({
             "doctype": "POS Profile", "__newname": name, "company": company, "warehouse": wh, "currency": "PKR",
             "selling_price_list": "Standard Selling", "customer": "Walk-in Customer", "update_stock": 1,
-            "write_off_account": frappe.db.get_value("Company", company, "write_off_account"), "write_off_cost_center": cc,
+            "write_off_account": frappe.db.get_value("Company", company, "write_off_account") or frappe.db.get_value("Company", company, "round_off_account"),
+            "write_off_cost_center": cc,
             "cost_center": cc, "account_for_change_amount": cash, "allow_discount_change": 1, "allow_rate_change": 1,
-            "payments": [{"mode_of_payment": "Cash", "default": 1}, {"mode_of_payment": "Bank", "default": 0}],
+            "payments": tenders,
             "item_groups": [{"item_group": g} for g in ("Spun Yarn", "Spinning Waste") if frappe.db.exists("Item Group", g)],
             "applicable_for_users": [{"user": u, "default": 1} for u in ("Administrator", "sales@micromaxonline.uk")
                                      if frappe.db.exists("User", u)],
@@ -77,12 +102,7 @@ def _tax_and_tenders(company, profile):
     tax = _sales_tax_template(company, abbr)
     if tax and not doc.taxes_and_charges:
         doc.taxes_and_charges = tax
-    bank = frappe.db.get_value("Company", company, "default_bank_account")
-    if bank and frappe.db.exists("Mode of Payment", "Credit Card") and not frappe.db.exists(
-            "Mode of Payment Account", {"parent": "Credit Card", "company": company}):
-        mop = frappe.get_doc("Mode of Payment", "Credit Card")
-        mop.append("accounts", {"company": company, "default_account": bank})
-        mop.save(ignore_permissions=True)
+    _ensure_mode("Credit Card", "Bank", company)
     have = {p.mode_of_payment for p in doc.payments}
     if "Credit Card" not in have and frappe.db.exists("Mode of Payment Account", {"parent": "Credit Card", "company": company}):
         doc.append("payments", {"mode_of_payment": "Credit Card", "default": 0})
