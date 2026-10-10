@@ -2,7 +2,7 @@
  {
   "group": "Handi",
   "item_name": "Dall Chana",
-  "uom": "Nos",
+  "uom": "Plate",
   "rate": 350.0,
   "image": "dall_chana.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Chana_Dal_Curry.jpg",
@@ -12,7 +12,7 @@
  {
   "group": "Handi",
   "item_name": "Dall Monghi",
-  "uom": "Nos",
+  "uom": "Plate",
   "rate": 350.0,
   "image": "dall_monghi.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Moong_Dal_Palak.JPG",
@@ -22,7 +22,7 @@
  {
   "group": "Handi",
   "item_name": "Chanay White",
-  "uom": "Nos",
+  "uom": "Plate",
   "rate": 300.0,
   "image": "chanay_white.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Choleindia.jpg",
@@ -32,7 +32,7 @@
  {
   "group": "Handi",
   "item_name": "Chanay Black",
-  "uom": "Nos",
+  "uom": "Plate",
   "rate": 300.0,
   "image": "chanay_black.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:DRY_KALA_CHANA_MASALA.jpg",
@@ -42,7 +42,7 @@
  {
   "group": "Handi",
   "item_name": "Sabzi",
-  "uom": "Nos",
+  "uom": "Plate",
   "rate": 300.0,
   "image": "sabzi.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Baigan_ka_Bharta.jpg",
@@ -52,7 +52,7 @@
  {
   "group": "Handi",
   "item_name": "Chicken Karahi",
-  "uom": "Nos",
+  "uom": "Kg",
   "rate": 1200.0,
   "image": "chicken_karahi.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Punjabi_Chicken_Karahi.JPG",
@@ -62,7 +62,7 @@
  {
   "group": "Handi",
   "item_name": "Chicken Korma",
-  "uom": "Nos",
+  "uom": "Plate",
   "rate": 900.0,
   "image": "chicken_korma.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Chicken_Korma.JPG",
@@ -84,8 +84,8 @@
   "item_name": "Chicken Tikka",
   "uom": "Nos",
   "rate": 450.0,
-  "image": "chicken_tikka.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Chicken_Tikka.jpg",
+  "image": "chicken_tikka_v2.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Chicken-Tikkasm.jpg",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -164,8 +164,8 @@
   "item_name": "Chicken Leg Piece",
   "uom": "Nos",
   "rate": 400.0,
-  "image": "chicken_leg_piece.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:A_piece_of_a_tandoori_chicken.JPG",
+  "image": "chicken_leg_piece_v2.jpg",
+  "credit": "https://commons.wikimedia.org/wiki/File:Tandoori.JPG",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -181,31 +181,11 @@
  },
  {
   "group": "BBQ",
-  "item_name": "Chargha Full",
-  "uom": "Nos",
+  "item_name": "Chicken Chargha",
+  "uom": "Kg",
   "rate": 1600.0,
   "image": "chargha_full.jpg",
   "credit": "https://commons.wikimedia.org/wiki/File:Tandoori_Chicken_-_Dhaka_2015-05-31_2740.JPG",
-  "default_qty": 0.0,
-  "qty_options": ""
- },
- {
-  "group": "BBQ",
-  "item_name": "Chargha Half",
-  "uom": "Nos",
-  "rate": 850.0,
-  "image": "chargha_half.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Chickentandoori.jpg",
-  "default_qty": 0.0,
-  "qty_options": ""
- },
- {
-  "group": "BBQ",
-  "item_name": "Chargha Quarter",
-  "uom": "Nos",
-  "rate": 450.0,
-  "image": "chargha_quarter.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Tandoori.JPG",
   "default_qty": 0.0,
   "qty_options": ""
  },

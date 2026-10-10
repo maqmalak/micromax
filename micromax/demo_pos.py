@@ -3,9 +3,10 @@
     bench --site <site> execute micromax.demo_pos.setup --kwargs "{'company': '...'}"
     bench --site <site> execute micromax.demo_pos.sell --kwargs "{'company': '...', 'sales': 12}"   # one shift of sales
 
-menu: the restaurant menu — Handi, BBQ, add-on, Fish, Beverages, Breakfast — with prices and photos (bundled in
-micromax/demo_assets/pos_menu, listed in micromax/demo_pos_menu.json), added to the counter's item groups:
-    bench --site <site> execute micromax.demo_pos.menu --kwargs "{'company': '...'}"
+restaurant: the "<abbr> Restaurant" counter (own warehouse, menu groups only) plus the menu — Handi, BBQ, add-on, Fish,
+Beverages, Breakfast — with prices and photos (bundled in micromax/demo_assets/pos_menu, listed in demo_pos_menu.json):
+    bench --site <site> execute micromax.demo_pos.restaurant --kwargs "{'company': '...'}"
+(menu alone: micromax.demo_pos.menu — targets the restaurant counter.)
 
 setup: Bank mode of payment account, a "Factory Outlet" warehouse stocked from the yarn / waste stores, the POS
 Profile (credit sales and a small write-off allowed), and POS-Awesome-style offers: a bulk-yarn discount, a coupon
@@ -19,7 +20,8 @@ import random
 import frappe
 from frappe.utils import flt
 
-PROFILE = "{abbr} Factory Outlet"
+PROFILE = "{abbr} Factory Outlet"          # yarn / waste counter
+RESTAURANT = "{abbr} Restaurant"            # the menu counter (Handi, BBQ, Fish, …)
 
 
 def _leaf(doctype, *preferred):
@@ -101,7 +103,7 @@ def setup(company):
         p.insert(ignore_permissions=True, set_name=name)
     frappe.db.set_value("POS Profile", name, {"allow_partial_payment": 1, "write_off_limit": 10})
     _tax_and_tenders(company, name)
-    menu(company, name)
+    restaurant(company)
     _offers(company, abbr)
     frappe.db.commit()
     print(f"POS profile {name} on {wh}")
@@ -251,6 +253,8 @@ def sell(company, sales=12, seed=None):
 
 # ------------------------------------------------------------------ restaurant menu (items, prices, photos)
 MENU_FILE = "demo_pos_menu.json"
+# items replaced by a single per-Kg item (Chicken Chargha) — disabled, not deleted, so past sales keep them
+RETIRED = ("Chargha Full", "Chargha Half", "Chargha Quarter")
 MENU_ASSETS = ("demo_assets", "pos_menu")
 
 
@@ -289,7 +293,7 @@ def menu(company, profile=None):
 
     frappe.set_user("Administrator")
     abbr = frappe.db.get_value("Company", company, "abbr")
-    profile = profile or PROFILE.format(abbr=abbr)
+    profile = profile or RESTAURANT.format(abbr=abbr)
     with open(os.path.join(frappe.get_app_path("micromax"), MENU_FILE), encoding="utf-8") as f:
         rows = json.load(f)
     has_presets = frappe.get_meta("Item").has_field("mm_pos_default_qty")
@@ -308,6 +312,12 @@ def menu(company, profile=None):
                             "is_stock_item": 0, "is_sales_item": 1, "include_item_in_manufacturing": 0,
                             "description": r["item_name"]}).insert(ignore_permissions=True)
             made += 1
+        if frappe.db.get_value("Item", code, "stock_uom") != r["uom"]:    # Plate / Kg menu units (non-stock items, so safe to switch)
+            frappe.db.set_value("Item", code, "stock_uom", r["uom"])
+            frappe.db.sql("delete from `tabUOM Conversion Detail` where parent = %s", code)
+            frappe.get_doc({"doctype": "UOM Conversion Detail", "parent": code, "parenttype": "Item", "parentfield": "uoms", "uom": r["uom"],
+                            "conversion_factor": 1, "idx": 1}).db_insert()
+            frappe.db.sql("update `tabItem Price` set uom = %s where item_code = %s", (r["uom"], code))
         if has_presets and (r.get("default_qty") or r.get("qty_options")):
             frappe.db.set_value("Item", code, {"mm_pos_default_qty": r.get("default_qty") or 0, "mm_pos_qty_options": r.get("qty_options") or ""})
         if r.get("rate") and not frappe.db.exists("Item Price", {"item_code": code, "price_list": "Standard Selling"}):
@@ -315,9 +325,14 @@ def menu(company, profile=None):
                             "uom": r["uom"]}).insert(ignore_permissions=True)
             priced += 1
         image = frappe.db.get_value("Item", code, "image") or ""
-        if r.get("image") and (not image or image.endswith(".svg")):
+        ours_outdated = image.startswith("/files/menu-") and image != f"/files/menu-{r.get('image')}"   # a bundled photo we replaced since
+        if r.get("image") and (not image or image.endswith(".svg") or ours_outdated):
             photos += _attach_photo(code, r["image"], r.get("credit"), r["item_name"])
         frappe.db.commit()
+    for old in RETIRED:
+        code = frappe.db.get_value("Item", {"item_name": old}, "name")
+        if code:
+            frappe.db.set_value("Item", code, "disabled", 1)
     if frappe.db.exists("POS Profile", profile):
         doc = frappe.get_doc("POS Profile", profile)
         have = {g.item_group for g in doc.get("item_groups") or []}
@@ -329,3 +344,47 @@ def menu(company, profile=None):
     frappe.db.commit()
     print(f"Menu: {len(rows)} items in {len(groups)} groups — {made} created, {priced} priced, {photos} photos" + (f"; on {profile}" if frappe.db.exists("POS Profile", profile) else ""))
     return {"items": len(rows), "created": made, "priced": priced, "photos": photos}
+
+
+def restaurant(company):
+    """The restaurant counter: its own warehouse and POS Profile showing only the menu groups (copied payment modes, tax,
+    customer, cashiers and rules from the factory outlet), then the menu itself. The outlet goes back to yarn / waste only."""
+    import json
+    import os
+
+    frappe.set_user("Administrator")
+    abbr = frappe.db.get_value("Company", company, "abbr")
+    outlet_name, name = PROFILE.format(abbr=abbr), RESTAURANT.format(abbr=abbr)
+    wh = f"Restaurant - {abbr}"
+    if not frappe.db.exists("Warehouse", wh):
+        parent = frappe.db.get_value("Warehouse", {"company": company, "is_group": 1, "parent_warehouse": ["in", ["", None]]}, "name")
+        frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "Restaurant", "company": company, "parent_warehouse": parent}).insert(ignore_permissions=True)
+    with open(os.path.join(frappe.get_app_path("micromax"), MENU_FILE), encoding="utf-8") as f:
+        groups = list(dict.fromkeys(r["group"] for r in json.load(f)))
+    for g in groups:
+        _menu_group(g)
+    if not frappe.db.exists("POS Profile", name):
+        src = frappe.get_doc("POS Profile", outlet_name) if frappe.db.exists("POS Profile", outlet_name) else None
+        cc = _cost_center(company)
+        doc = frappe.get_doc({
+            "doctype": "POS Profile", "__newname": name, "company": company, "warehouse": wh, "currency": src.currency if src else "PKR",
+            "selling_price_list": src.selling_price_list if src else "Standard Selling", "customer": src.customer if src else "Walk-in Customer",
+            "update_stock": 0, "write_off_account": src.write_off_account if src else frappe.db.get_value("Company", company, "write_off_account"),
+            "write_off_cost_center": cc, "cost_center": cc, "account_for_change_amount": src.account_for_change_amount if src else None,
+            "taxes_and_charges": src.taxes_and_charges if src else None, "allow_discount_change": 1, "allow_rate_change": 1,
+            "allow_partial_payment": 1, "write_off_limit": 10,
+            "payments": [{"mode_of_payment": p.mode_of_payment, "default": p.default} for p in (src.payments if src else [])]
+                        or [{"mode_of_payment": "Cash", "default": 1}],
+            "item_groups": [{"item_group": g} for g in groups],
+            "applicable_for_users": [{"user": u.user, "default": 0} for u in (src.applicable_for_users if src else [])],
+        })
+        doc.insert(ignore_permissions=True, set_name=name)
+    if frappe.db.exists("POS Profile", outlet_name):                     # the outlet sells yarn / waste, not the menu
+        out = frappe.get_doc("POS Profile", outlet_name)
+        keep = [g for g in out.item_groups if g.item_group not in groups]
+        if len(keep) != len(out.item_groups) and keep:
+            out.set("item_groups", keep)
+            out.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(f"Restaurant counter {name} on {wh}")
+    return menu(company, name)
