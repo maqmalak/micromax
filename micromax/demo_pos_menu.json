@@ -375,7 +375,7 @@
   "uom": "Nos",
   "rate": 100.0,
   "image": "coke_regular.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Coca_Cola_Flasche_-_Original_Taste.jpg",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -485,7 +485,7 @@
   "uom": "Nos",
   "rate": 150.0,
   "image": "pepsi_half_liter.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Pepsi_355_ml,_591_ml,_and_710_ml,_Canada_",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -524,8 +524,8 @@
   "item_name": "Next Regular",
   "uom": "Nos",
   "rate": 100.0,
-  "image": "next_regular.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "image": "next_cola.jpg",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -534,8 +534,8 @@
   "item_name": "Next Half Liter",
   "uom": "Nos",
   "rate": 150.0,
-  "image": "next_regular.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "image": "next_cola.jpg",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -544,8 +544,8 @@
   "item_name": "Next 1 Liter",
   "uom": "Nos",
   "rate": 220.0,
-  "image": "next_regular.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "image": "next_cola.jpg",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -554,8 +554,8 @@
   "item_name": "Next 1.5 Liter",
   "uom": "Nos",
   "rate": 300.0,
-  "image": "next_regular.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "image": "next_cola.jpg",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
@@ -564,8 +564,8 @@
   "item_name": "Next 2 Liter",
   "uom": "Nos",
   "rate": 350.0,
-  "image": "next_regular.jpg",
-  "credit": "https://commons.wikimedia.org/wiki/File:Glass_of_Cola.jpg",
+  "image": "next_cola.jpg",
+  "credit": "",
   "default_qty": 0.0,
   "qty_options": ""
  },
